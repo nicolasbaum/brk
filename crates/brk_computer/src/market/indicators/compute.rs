@@ -6,7 +6,7 @@ use super::{
     super::{moving_average, range, returns::Vecs as ReturnsVecs},
     Vecs,
 };
-use crate::{ComputeIndexes, blocks, distribution, price};
+use crate::{ComputeIndexes, blocks, cointime, distribution, price};
 
 impl Vecs {
     #[allow(clippy::too_many_arguments)]
@@ -18,6 +18,7 @@ impl Vecs {
         range: &range::Vecs,
         price: &price::Vecs,
         distribution: &distribution::Vecs,
+        cointime: &cointime::Vecs,
         starting_indexes: &ComputeIndexes,
         exit: &Exit,
     ) -> Result<()> {
@@ -190,6 +191,86 @@ impl Vecs {
                 },
                 exit,
             )?;
+        }
+
+        // ── Thermocap Multiple & MVRV Z-Score ──
+        if let Some(market_cap_dollars) = distribution
+            .utxo_cohorts
+            .all
+            .metrics
+            .supply
+            .total
+            .dollars
+            .as_ref()
+        {
+            let mc_di = &market_cap_dollars.dateindex;
+            let tc_di = &cointime.cap.thermo_cap.dateindex;
+
+            // Thermocap Multiple = Market Cap / Thermo Cap
+            {
+                let version = mc_di.version() + tc_di.version();
+                let mut mc_iter = mc_di.into_iter();
+                let mut tc_iter = tc_di.into_iter();
+
+                self.thermocap_multiple.compute_to(
+                    starting_indexes.dateindex,
+                    mc_di.len(),
+                    version,
+                    |dateindex| {
+                        let mc: f64 = *mc_iter.get_unwrap(dateindex);
+                        let tc: f64 = *tc_iter.get_unwrap(dateindex);
+                        let ratio = if tc == 0.0 { 0.0 } else { mc / tc };
+                        (dateindex, StoredF32::from(ratio as f32))
+                    },
+                    exit,
+                )?;
+            }
+
+            // MVRV Z-Score = (Market Cap - Realized Cap) / StdDev(Market Cap - Realized Cap)
+            if let Some(realized) = distribution
+                .utxo_cohorts
+                .all
+                .metrics
+                .realized
+                .as_ref()
+            {
+                let rc_di = &realized.realized_cap.dateindex;
+                let version = mc_di.version() + rc_di.version();
+                let mut mc_iter = mc_di.into_iter();
+                let mut rc_iter = rc_di.into_iter();
+
+                // Welford's online algorithm for expanding std dev
+                let mut count = 0u64;
+                let mut mean = 0.0f64;
+                let mut m2 = 0.0f64;
+
+                self.mvrv_z_score.compute_to(
+                    starting_indexes.dateindex,
+                    mc_di.len(),
+                    version,
+                    |dateindex| {
+                        let mc: f64 = *mc_iter.get_unwrap(dateindex);
+                        let rc: f64 = *rc_iter.get_unwrap(dateindex);
+                        let diff = mc - rc;
+
+                        count += 1;
+                        let delta = diff - mean;
+                        mean += delta / count as f64;
+                        let delta2 = diff - mean;
+                        m2 += delta * delta2;
+
+                        let z = if count < 30 || m2 <= 0.0 {
+                            0.0
+                        } else {
+                            let std_dev = (m2 / count as f64).sqrt();
+                            if std_dev == 0.0 { 0.0 } else { diff / std_dev }
+                        };
+
+                        (dateindex, StoredF32::from(z as f32))
+                    },
+                    exit,
+                )?;
+            }
         }
 
         Ok(())

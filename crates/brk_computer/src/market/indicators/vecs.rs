@@ -32,4 +32,12 @@ pub struct Vecs {
         LazyVecFrom2<DateIndex, StoredF32, DateIndex, StoredF32, DateIndex, StoredF32>,
 
     pub gini: EagerVec<PcoVec<DateIndex, StoredF32>>,
+
+    // ── Derived valuation metrics ──
+    /// Thermocap Multiple = Market Cap / Thermo Cap
+    pub thermocap_multiple: EagerVec<PcoVec<DateIndex, StoredF32>>,
+
+    /// MVRV Z-Score = (Market Cap - Realized Cap) / StdDev(Market Cap - Realized Cap)
+    /// Uses expanding standard deviation (all history up to each point)
+    pub mvrv_z_score: EagerVec<PcoVec<DateIndex, StoredF32>>,
 }

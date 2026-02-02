@@ -1,4 +1,4 @@
-/** On-chain indicators (Pi Cycle, Puell, NVT, Gini) */
+/** On-chain indicators (Pi Cycle, Puell, NVT, MVRV Z-Score, Thermocap, Gini) */
 
 import { Unit } from "../../utils/units.js";
 import { baseline, line, price } from "../series.js";
@@ -60,6 +60,31 @@ export function createValuationSection(ctx, { indicators, movingAverage }) {
             metric: indicators.nvt,
             name: "NVT",
             color: colors.orange,
+            unit: Unit.ratio,
+          }),
+        ],
+      },
+      {
+        name: "MVRV Z-Score",
+        title: "MVRV Z-Score",
+        bottom: [
+          baseline({
+            metric: indicators.mvrvZScore,
+            name: "Z-Score",
+            unit: Unit.ratio,
+            base: 0,
+            color: colors.orange,
+          }),
+        ],
+      },
+      {
+        name: "Thermocap Multiple",
+        title: "Thermocap Multiple",
+        bottom: [
+          line({
+            metric: indicators.thermocapMultiple,
+            name: "Thermocap",
+            color: colors.cyan,
             unit: Unit.ratio,
           }),
         ],

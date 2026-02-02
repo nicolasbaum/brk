@@ -1,7 +1,7 @@
 use brk_error::Result;
 use vecdb::Exit;
 
-use crate::{blocks, distribution, price, ComputeIndexes};
+use crate::{blocks, cointime, distribution, price, ComputeIndexes};
 
 use super::Vecs;
 
@@ -11,6 +11,7 @@ impl Vecs {
         price: &price::Vecs,
         blocks: &blocks::Vecs,
         distribution: &distribution::Vecs,
+        cointime: &cointime::Vecs,
         starting_indexes: &ComputeIndexes,
         exit: &Exit,
     ) -> Result<()> {
@@ -42,6 +43,7 @@ impl Vecs {
             &self.range,
             price,
             distribution,
+            cointime,
             starting_indexes,
             exit,
         )?;

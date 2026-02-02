@@ -87,6 +87,12 @@ impl Vecs {
             )
         });
 
+        // Thermocap Multiple (eager — computed in compute step)
+        let thermocap_multiple = EagerVec::forced_import(db, "thermocap_multiple", v)?;
+
+        // MVRV Z-Score (eager — computed in compute step)
+        let mvrv_z_score = EagerVec::forced_import(db, "mvrv_z_score", v)?;
+
         Ok(Self {
             puell_multiple: compute_dollars
                 .then(|| ComputedFromDateLast::forced_import(db, "puell_multiple", v, indexes))
@@ -109,6 +115,8 @@ impl Vecs {
             macd_signal,
             macd_histogram,
             gini,
+            thermocap_multiple,
+            mvrv_z_score,
         })
     }
 }

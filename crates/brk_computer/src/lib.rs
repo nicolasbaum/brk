@@ -432,6 +432,7 @@ impl Computer {
                 price,
                 &self.blocks,
                 &self.distribution,
+                &self.cointime,
                 &starting_indexes,
                 exit,
             )?;
