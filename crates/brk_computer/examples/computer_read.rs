@@ -12,7 +12,7 @@ pub fn main() -> Result<()> {
 
     let indexer = Indexer::forced_import(&outputs_dir)?;
 
-    let computer = Computer::forced_import(&outputs_dir, &indexer)?;
+    let computer = Computer::forced_import(&outputs_dir, &indexer, None)?;
 
     // Test empty_addr_data (underlying BytesVec) - direct access
     let empty_data = &computer.distribution.addrs_data.empty;

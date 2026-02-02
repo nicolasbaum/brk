@@ -56,7 +56,7 @@ pub fn main() -> anyhow::Result<()> {
         }
     }
 
-    let mut computer = Computer::forced_import(&config.brkdir(), &indexer)?;
+    let mut computer = Computer::forced_import(&config.brkdir(), &indexer, config.fetcher())?;
 
     let mempool = Mempool::new(&client);
 

@@ -29,7 +29,7 @@ pub fn main() -> Result<()> {
 
     let mut indexer = Indexer::forced_import(&outputs_dir)?;
 
-    let mut computer = Computer::forced_import(&outputs_benches_dir, &indexer)?;
+    let mut computer = Computer::forced_import(&outputs_benches_dir, &indexer, None)?;
 
     let mut bencher =
         Bencher::from_cargo_env(env!("CARGO_PKG_NAME"), &outputs_dir.join("computed"))?;

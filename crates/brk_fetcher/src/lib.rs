@@ -10,22 +10,26 @@ use ureq::Agent;
 
 mod binance;
 mod brk;
+mod fred;
 mod kraken;
 mod ohlc;
 mod retry;
 mod source;
+mod yahoo;
 
 pub use binance::*;
 pub use brk::*;
+pub use fred::*;
 pub use kraken::*;
 pub use ohlc::compute_ohlc_from_range;
 use retry::*;
 pub use source::{PriceSource, TrackedSource};
+pub use yahoo::*;
 
 const MAX_RETRIES: usize = 12 * 60; // 12 hours of retrying
 
 /// Create a shared HTTP agent with connection pooling and default timeout.
-/// Status codes are not treated as errors — callers use `checked_get` for status handling.
+/// Status codes are not treated as errors - callers use `checked_get` for status handling.
 pub fn new_agent(timeout_secs: u64) -> Agent {
     Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(timeout_secs)))
@@ -55,19 +59,21 @@ pub struct Fetcher {
     pub binance: TrackedSource<Binance>,
     pub kraken: TrackedSource<Kraken>,
     pub brk: TrackedSource<BRK>,
+    pub fred: Option<Fred>,
 }
 
 impl Fetcher {
-    pub fn import(hars_path: Option<&Path>) -> Result<Self> {
-        Self::new(hars_path)
+    pub fn import(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
+        Self::new(hars_path, fred_api_key)
     }
 
-    pub fn new(hars_path: Option<&Path>) -> Result<Self> {
+    pub fn new(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
         let agent = new_agent(30);
         Ok(Self {
             binance: TrackedSource::new(Binance::new_with_agent(hars_path, agent.clone())),
             kraken: TrackedSource::new(Kraken::new_with_agent(agent.clone())),
             brk: TrackedSource::new(BRK::new_with_agent(agent.clone())),
+            fred: fred_api_key.map(|api_key| Fred::new(agent.clone(), api_key)),
             agent,
         })
     }
@@ -127,7 +133,6 @@ impl Fetcher {
 
         self.fetch_with_retry(
             |source| {
-                // Try 1mn data first, fall back to height-based
                 source
                     .get_1mn(timestamp, previous_timestamp)
                     .or_else(|| source.get_height(height))
@@ -166,7 +171,6 @@ How to fix this:
                 return ohlc;
             }
 
-            // All sources failed
             if retry < MAX_RETRIES {
                 info!("All sources failed, retrying in 60s...");
                 sleep(Duration::from_secs(60));

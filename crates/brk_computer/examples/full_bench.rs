@@ -56,7 +56,7 @@ pub fn main() -> color_eyre::Result<()> {
         indexer = Indexer::forced_import(&outputs_dir)?;
     }
 
-    let mut computer = Computer::forced_import(&outputs_dir, &indexer)?;
+    let mut computer = Computer::forced_import(&outputs_dir, &indexer, None)?;
 
     loop {
         let i = Instant::now();
