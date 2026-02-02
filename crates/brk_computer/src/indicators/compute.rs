@@ -1,6 +1,6 @@
 use brk_error::Result;
 use brk_types::{Bitcoin, Dollars, Indexes, StoredF32};
-use vecdb::Exit;
+use vecdb::{AnyVec, Exit, TypedVecIterator};
 
 use super::{Vecs, gini};
 use crate::{distribution, internal::RatioDollarsBp32, market, mining, transactions};
@@ -84,6 +84,52 @@ impl Vecs {
                 &mining.rewards.subsidy.cumulative.usd.height,
                 exit,
             )?;
+
+        let realized_cap = &distribution
+            .utxo_cohorts
+            .all
+            .metrics
+            .realized
+            .cap
+            .usd
+            .height;
+        let version = market_cap.version() + realized_cap.version();
+        let mut market_cap_iter = market_cap.into_iter();
+        let mut realized_cap_iter = realized_cap.into_iter();
+        let mut count = 0u64;
+        let mut mean = 0.0f64;
+        let mut m2 = 0.0f64;
+
+        self.mvrv_z_score.height.compute_to(
+            starting_indexes.height,
+            market_cap.len(),
+            version,
+            |height| {
+                let market_cap = f64::from(*market_cap_iter.get_unwrap(height));
+                let realized_cap = f64::from(*realized_cap_iter.get_unwrap(height));
+                let diff = market_cap - realized_cap;
+
+                count += 1;
+                let delta = diff - mean;
+                mean += delta / count as f64;
+                let delta2 = diff - mean;
+                m2 += delta * delta2;
+
+                let z_score = if count < 30 || m2 <= 0.0 {
+                    0.0
+                } else {
+                    let std_dev = (m2 / count as f64).sqrt();
+                    if std_dev == 0.0 {
+                        0.0
+                    } else {
+                        diff / std_dev
+                    }
+                };
+
+                (height, StoredF32::from(z_score as f32))
+            },
+            exit,
+        )?;
 
         let all_metrics = &distribution.utxo_cohorts.all.metrics;
         let all_activity = &all_metrics.activity;

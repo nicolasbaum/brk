@@ -973,6 +973,19 @@ export function createMarketSection() {
                 ],
               },
               {
+                name: "MVRV Z-Score",
+                title: "MVRV Z-Score",
+                bottom: [
+                  baseline({
+                    series: indicators.mvrvZScore,
+                    name: "Z-Score",
+                    color: colors.bitcoin,
+                    unit: Unit.ratio,
+                    base: 0,
+                  }),
+                ],
+              },
+              {
                 name: "Thermocap Multiple",
                 title: "Thermocap Multiple",
                 bottom: [
