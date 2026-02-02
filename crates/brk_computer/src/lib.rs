@@ -18,6 +18,7 @@ mod distribution;
 pub mod indexes;
 mod inputs;
 mod internal;
+pub mod macro_economy;
 mod market;
 mod outputs;
 mod pools;
@@ -40,6 +41,7 @@ pub struct Computer {
     pub cointime: cointime::Vecs,
     pub constants: constants::Vecs,
     pub indexes: indexes::Vecs,
+    pub macro_economy: Option<macro_economy::Vecs>,
     pub market: market::Vecs,
     pub pools: pools::Vecs,
     pub price: Option<price::Vecs>,
@@ -47,6 +49,8 @@ pub struct Computer {
     pub supply: supply::Vecs,
     pub inputs: inputs::Vecs,
     pub outputs: outputs::Vecs,
+    #[traversable(skip)]
+    fred: Option<brk_fetcher::Fred>,
 }
 
 const VERSION: Version = Version::new(4);
@@ -99,6 +103,8 @@ impl Computer {
 
         let i = Instant::now();
         let constants = constants::Vecs::new(VERSION, &indexes);
+        // Extract FRED client before fetcher is consumed by price
+        let fred = fetcher.as_ref().and_then(|f| f.fred.clone());
         // Price must be created before market since market's lazy vecs reference price
         let price = price::Vecs::forced_import(&computed_path, VERSION, &indexes, fetcher)?;
         let price = price.has_fetcher().then_some(price);
@@ -180,6 +186,16 @@ impl Computer {
         )?;
         info!("Imported supply in {:?}", i.elapsed());
 
+        // Macro economy (only if FRED API key is available)
+        let i = Instant::now();
+        let macro_economy = if fred.is_some() {
+            let vecs = macro_economy::Vecs::forced_import(&computed_path, VERSION)?;
+            info!("Imported macro_economy in {:?}", i.elapsed());
+            Some(vecs)
+        } else {
+            None
+        };
+
         // Market must be imported after distribution and transactions (for NVT indicator)
         let i = Instant::now();
         let market = market::Vecs::forced_import(
@@ -199,6 +215,7 @@ impl Computer {
             transactions,
             scripts,
             constants,
+            macro_economy,
             market,
             distribution,
             supply,
@@ -209,6 +226,7 @@ impl Computer {
             inputs,
             price,
             outputs,
+            fred,
         };
 
         Self::retain_databases(&computed_path)?;
@@ -225,6 +243,7 @@ impl Computer {
             positions::DB_NAME,
             cointime::DB_NAME,
             indexes::DB_NAME,
+            macro_economy::DB_NAME,
             market::DB_NAME,
             pools::DB_NAME,
             price::DB_NAME,
@@ -292,6 +311,16 @@ impl Computer {
             let i = Instant::now();
             price.compute(indexer, &self.indexes, &starting_indexes, exit)?;
             info!("Computed prices in {:?}", i.elapsed());
+        }
+
+        // Macro economy: fetch FRED data and forward-fill into DateIndex vecs
+        if let Some(macro_economy) = self.macro_economy.as_mut() {
+            if let Some(fred) = self.fred.as_ref() {
+                info!("Computing macro economy...");
+                let i = Instant::now();
+                macro_economy.compute(fred, &self.indexes, &starting_indexes, exit)?;
+                info!("Computed macro economy in {:?}", i.elapsed());
+            }
         }
 
         thread::scope(|scope| -> Result<()> {
@@ -481,6 +510,11 @@ impl Computer {
                 self.indexes
                     .iter_any_exportable()
                     .map(|v| (indexes::DB_NAME, v)),
+            )
+            .chain(
+                self.macro_economy
+                    .iter_any_exportable()
+                    .map(|v| (macro_economy::DB_NAME, v)),
             )
             .chain(
                 self.market

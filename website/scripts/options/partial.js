@@ -14,6 +14,7 @@ import {
   createAddressCohortFolder,
 } from "./distribution/index.js";
 import { createMarketSection } from "./market/index.js";
+import { createMacroEconomySection } from "./macro_economy.js";
 import { createChainSection } from "./chain.js";
 import { createCointimeSection } from "./cointime.js";
 import { colors } from "../chart/colors.js";
@@ -87,6 +88,9 @@ export function createPartialOptions({ brk }) {
       tree: [
         // Market section
         createMarketSection(ctx),
+
+        // Macro Economy section (FRED data)
+        createMacroEconomySection(ctx),
 
         // Chain section
         createChainSection(ctx),

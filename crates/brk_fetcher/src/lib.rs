@@ -8,14 +8,18 @@ use tracing::info;
 
 mod binance;
 mod brk;
+mod fred;
 mod kraken;
 mod ohlc;
 mod retry;
 mod source;
+mod yahoo;
 
 pub use binance::*;
 pub use brk::*;
+pub use fred::*;
 pub use kraken::*;
+pub use yahoo::*;
 pub use ohlc::compute_ohlc_from_range;
 use retry::*;
 pub use source::{PriceSource, TrackedSource};
@@ -40,18 +44,20 @@ pub struct Fetcher {
     pub binance: TrackedSource<Binance>,
     pub kraken: TrackedSource<Kraken>,
     pub brk: TrackedSource<BRK>,
+    pub fred: Option<Fred>,
 }
 
 impl Fetcher {
-    pub fn import(hars_path: Option<&Path>) -> Result<Self> {
-        Self::new(hars_path)
+    pub fn import(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
+        Self::new(hars_path, fred_api_key)
     }
 
-    pub fn new(hars_path: Option<&Path>) -> Result<Self> {
+    pub fn new(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
         Ok(Self {
             binance: TrackedSource::new(Binance::init(hars_path)),
             kraken: TrackedSource::new(Kraken::default()),
             brk: TrackedSource::new(BRK::default()),
+            fred: fred_api_key.map(Fred::new),
         })
     }
 

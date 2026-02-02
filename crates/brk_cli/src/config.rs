@@ -28,6 +28,9 @@ pub struct Config {
     fetch: Option<bool>,
 
     #[serde(default, deserialize_with = "default_on_error")]
+    fred_api_key: Option<String>,
+
+    #[serde(default, deserialize_with = "default_on_error")]
     bitcoindir: Option<String>,
 
     #[serde(default, deserialize_with = "default_on_error")]
@@ -94,6 +97,9 @@ impl Config {
         if let Some(v) = config_args.rpcpassword {
             config.rpcpassword = Some(v);
         }
+        if let Some(v) = config_args.fred_api_key {
+            config.fred_api_key = Some(v);
+        }
 
         config.check();
 
@@ -122,6 +128,9 @@ impl Config {
                 Long("brkport") => config.brkport = Some(parser.value().unwrap().parse().unwrap()),
                 Long("website") => config.website = Some(parser.value().unwrap().parse().unwrap()),
                 Long("fetch") => config.fetch = Some(parser.value().unwrap().parse().unwrap()),
+                Long("fred-api-key") => {
+                    config.fred_api_key = Some(parser.value().unwrap().parse().unwrap())
+                }
                 Long("bitcoindir") => {
                     config.bitcoindir = Some(parser.value().unwrap().parse().unwrap())
                 }
@@ -166,6 +175,7 @@ impl Config {
         println!("    --brkport {}              Server port {}", "<PORT>".bright_black(), "[3110]".bright_black());
         println!("    --website {}        Website: true, false, or path {}", "<BOOL|PATH>".bright_black(), "[true]".bright_black());
         println!("    --fetch {}               Fetch prices {}", "<BOOL>".bright_black(), "[true]".bright_black());
+        println!("    --fred-api-key {}         FRED API key for macro data {}", "<KEY>".bright_black(), "[$FRED_API_KEY]".bright_black());
         println!();
         println!("    --bitcoindir {}          Bitcoin directory {}", "<PATH>".bright_black(), "[~/.bitcoin, ~/Library/...]".bright_black());
         println!("    --blocksdir {}           Blocks directory {}", "<PATH>".bright_black(), "[<bitcoindir>/blocks]".bright_black());
@@ -296,9 +306,13 @@ Finally, you can run the program with '-h' for help."
         self.fetch.is_none_or(|b| b)
     }
 
+    pub fn fred_api_key(&self) -> Option<String> {
+        self.fred_api_key.clone().or_else(|| std::env::var("FRED_API_KEY").ok())
+    }
+
     pub fn fetcher(&self) -> Option<Fetcher> {
         self.fetch()
-            .then(|| Fetcher::import(Some(self.harsdir().as_path())).unwrap())
+            .then(|| Fetcher::import(Some(self.harsdir().as_path()), self.fred_api_key()).unwrap())
     }
 
 }
