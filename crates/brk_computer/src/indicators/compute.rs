@@ -105,8 +105,8 @@ impl Vecs {
             market_cap.len(),
             version,
             |height| {
-                let market_cap = f64::from(*market_cap_iter.get_unwrap(height));
-                let realized_cap = f64::from(*realized_cap_iter.get_unwrap(height));
+                let market_cap = f64::from(*market_cap_iter.get_or_default(height));
+                let realized_cap = f64::from(*realized_cap_iter.get_or_default(height));
                 let diff = market_cap - realized_cap;
 
                 count += 1;
