@@ -217,8 +217,8 @@ impl Vecs {
                     mc_di.len(),
                     version,
                     |dateindex| {
-                        let mc: f64 = *mc_iter.get_unwrap(dateindex);
-                        let tc: f64 = *tc_iter.get_unwrap(dateindex);
+                        let mc: f64 = *mc_iter.get_or_default(dateindex);
+                        let tc: f64 = *tc_iter.get_or_default(dateindex);
                         let ratio = if tc == 0.0 { 0.0 } else { mc / tc };
                         (dateindex, StoredF32::from(ratio as f32))
                     },
@@ -249,8 +249,8 @@ impl Vecs {
                     mc_di.len(),
                     version,
                     |dateindex| {
-                        let mc: f64 = *mc_iter.get_unwrap(dateindex);
-                        let rc: f64 = *rc_iter.get_unwrap(dateindex);
+                        let mc: f64 = *mc_iter.get_or_default(dateindex);
+                        let rc: f64 = *rc_iter.get_or_default(dateindex);
                         let diff = mc - rc;
 
                         count += 1;
