@@ -273,21 +273,27 @@ impl Vecs {
     ) -> Result<()> {
         macro_rules! push_to_vec {
             ($vec:expr) => {{
-                // For a new (empty) vec, pad with default values up to
-                // the first observation's dateindex so truncate_push_at
-                // doesn't fail on a gap.
-                if $vec.len() == 0 {
-                    if let Some(&(first_di, _)) = filled.iter().find(|&&(di, _)| di >= starting_di) {
-                        let first_idx: usize = first_di.into();
+                // Pad with default/last-known values to fill any gap between
+                // the current vec length and the first dateindex we're about to push.
+                // This handles both empty vecs AND non-empty vecs where FRED
+                // returned sparse data that skips some dateindexes.
+                if let Some(&(first_di, _)) = filled.iter().find(|&&(di, _)| di >= starting_di) {
+                    let first_idx: usize = first_di.into();
+                    let vec_len = $vec.len();
+                    if first_idx > vec_len {
                         let default_val = StoredF32::from(0.0f32);
-                        for pad_idx in 0..first_idx {
+                        for pad_idx in vec_len..first_idx {
                             $vec.truncate_push_at(pad_idx, default_val)?;
                         }
                     }
                 }
                 for &(di, val) in filled {
                     if di >= starting_di {
-                        $vec.truncate_push_at(di.into(), val)?;
+                        let idx: usize = di.into();
+                        // Skip if we'd create a gap (shouldn't happen after padding, but be safe)
+                        if idx <= $vec.len() {
+                            $vec.truncate_push_at(idx, val)?;
+                        }
                     }
                 }
                 {
