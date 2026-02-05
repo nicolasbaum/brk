@@ -37,6 +37,7 @@
  * @property {LineSeriesPartialOptions} [options]
  * @typedef {BaseSeriesBlueprint & DotsSeriesBlueprintSpecific} DotsSeriesBlueprint
  *
+<<<<<<< HEAD
  * @typedef {Object} DotsBaselineSeriesBlueprintSpecific
  * @property {"DotsBaseline"} type
  * @property {Color} [color]
@@ -56,6 +57,9 @@
 =======
  * @typedef {BaselineSeriesBlueprint | CandlestickSeriesBlueprint | LineSeriesBlueprint | HistogramSeriesBlueprint | DotsSeriesBlueprint | DotsBaselineSeriesBlueprint} AnySeriesBlueprint
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @typedef {BaselineSeriesBlueprint | CandlestickSeriesBlueprint | LineSeriesBlueprint | HistogramSeriesBlueprint | DotsSeriesBlueprint} AnySeriesBlueprint
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  * @typedef {AnySeriesBlueprint["type"]} SeriesType
  *
@@ -66,12 +70,12 @@
  * @typedef {LineSeriesBlueprint & FetchedAnySeriesOptions} FetchedLineSeriesBlueprint
  * @typedef {HistogramSeriesBlueprint & FetchedAnySeriesOptions} FetchedHistogramSeriesBlueprint
  * @typedef {DotsSeriesBlueprint & FetchedAnySeriesOptions} FetchedDotsSeriesBlueprint
- * @typedef {DotsBaselineSeriesBlueprint & FetchedAnySeriesOptions} FetchedDotsBaselineSeriesBlueprint
  * @typedef {AnySeriesBlueprint & FetchedAnySeriesOptions} AnyFetchedSeriesBlueprint
  *
  * Any pattern with usd and sats sub-series (auto-expands to USD + sats)
  * @typedef {{ usd: AnySeriesPattern, sats: AnySeriesPattern }} AnyPricePattern
  *
+<<<<<<< HEAD
 <<<<<<< HEAD
  * Any pattern with sats, btc, and usd sub-series (value patterns like stack)
  * @typedef {{ sats: AnySeriesPattern, btc: AnySeriesPattern, usd: AnySeriesPattern }} AnyValuePattern
@@ -82,6 +86,8 @@
  * Any pattern with sats, bitcoin, and dollars sub-metrics (value patterns like stack)
  * @typedef {{ sats: AnyMetricPattern, bitcoin: AnyMetricPattern, dollars: AnyMetricPattern }} AnyValuePattern
  *
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  * Top pane price series - requires a price pattern with dollars/sats, auto-expands to USD + sats
  * @typedef {{ metric: AnyPricePattern }} FetchedPriceSeriesOptions
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
@@ -197,10 +203,6 @@
  *   - EmptyPattern (type.empty, type.p2ms, type.unknown)
  * @typedef {EmptyPattern} PatternWithoutRelative
  *
- * Patterns without relative section entirely (edge case output types):
- *   - EmptyPattern (type.empty, type.p2ms, type.unknown)
- * @typedef {EmptyPattern} PatternWithoutRelative
- *
  * Union of basic patterns (for backwards compat)
  * @typedef {PatternBasicWithMarketCap | PatternBasicWithoutMarketCap} PatternBasic
  *
@@ -215,10 +217,14 @@
  * @property {Color} color
  * @property {PatternAll} tree
 <<<<<<< HEAD
+<<<<<<< HEAD
  * @property {AddrCountPattern} addressCount
 =======
  * @property {Brk._30dCountPattern} addrCount
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @property {Brk.MetricPattern1<Brk.StoredU64>} addrCount
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  * Full cohort: adjustedSopr + percentiles + RelToMarketCap (term.short)
  * @typedef {Object} CohortFull
@@ -256,24 +262,21 @@
  * @property {AgeRangePattern} tree
  *
 <<<<<<< HEAD
+<<<<<<< HEAD
  * Age range cohort with matured supply
  * @typedef {CohortAgeRange & { matured: FullValuePattern }} CohortAgeRangeWithMatured
  *
 =======
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * Basic cohort WITH RelToMarketCap (geAmount.*, ltAmount.*)
+=======
+ * Basic cohort WITH RelToMarketCap (minAge.*, geAmount.*, ltAmount.*)
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  * @typedef {Object} CohortBasicWithMarketCap
  * @property {string} name
  * @property {string} title
  * @property {Color} color
  * @property {PatternBasicWithMarketCap} tree
- *
- * MinAge cohort - has peakRegret in unrealized (minAge.*)
- * @typedef {Object} CohortMinAge
- * @property {string} name
- * @property {string} title
- * @property {Color} color
- * @property {MinAgePattern} tree
  *
  * Basic cohort WITHOUT RelToMarketCap (epoch.*, amountRange.*, year.*, type.*)
  * @typedef {Object} CohortBasicWithoutMarketCap
@@ -281,13 +284,6 @@
  * @property {string} title
  * @property {Color} color
  * @property {PatternBasicWithoutMarketCap} tree
- *
- * Cohort without relative section (edge case types: empty, p2ms, unknown)
- * @typedef {Object} CohortWithoutRelative
- * @property {string} name
- * @property {string} title
- * @property {Color} color
- * @property {PatternWithoutRelative} tree
  *
  * Union of basic cohort types
  * @typedef {CohortBasicWithMarketCap | CohortBasicWithoutMarketCap} CohortBasic
@@ -301,8 +297,12 @@
  * @typedef {{ name: string, title: string, color: Color, tree: EmptyPattern, addressCount: AddrCountPattern }} CohortAddr
 =======
  * Addressable cohort with address count (for "type" cohorts - no RelToMarketCap)
+<<<<<<< HEAD
  * @typedef {CohortBasicWithoutMarketCap & { addrCount: Brk._30dCountPattern }} CohortAddress
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @typedef {CohortBasicWithoutMarketCap & { addrCount: Brk.MetricPattern1<Brk.StoredU64> }} CohortAddress
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  * ============================================================================
  * Cohort Group Types (by capability)
@@ -312,36 +312,32 @@
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortFull[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} CohortGroupWithAdjusted
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortWithAdjusted[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} CohortGroupWithPercentiles
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortWithPercentiles[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} CohortGroupLongTerm
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortLongTerm[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} CohortGroupAgeRange
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortAgeRange[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} CohortGroupBasicWithMarketCap
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortBasicWithMarketCap[]} list
+<<<<<<< HEAD
  * @property {CohortAll} all
 <<<<<<< HEAD
 =======
@@ -352,18 +348,13 @@
  * @property {readonly CohortMinAge[]} list
  * @property {CohortAll} all
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  * @typedef {Object} CohortGroupBasicWithoutMarketCap
  * @property {string} name
  * @property {string} title
  * @property {readonly CohortBasicWithoutMarketCap[]} list
- * @property {CohortAll} all
- *
- * @typedef {Object} CohortGroupWithoutRelative
- * @property {string} name
- * @property {string} title
- * @property {readonly CohortWithoutRelative[]} list
- * @property {CohortAll} all
  *
  * Union of basic cohort group types
  * @typedef {CohortGroupBasicWithMarketCap | CohortGroupBasicWithoutMarketCap} CohortGroupBasic
@@ -372,7 +363,6 @@
  * @property {string} name
  * @property {string} title
  * @property {readonly UtxoCohortObject[]} list
- * @property {CohortAll} all
  *
  * @typedef {Object} AddrCohortObject
  * @property {string} name
@@ -385,10 +375,13 @@
  * @typedef {UtxoCohortObject | AddrCohortObject | CohortWithoutRelative} CohortObject
 =======
  * @property {AddressCohortPattern} tree
- * @property {Brk._30dCountPattern} addrCount
  *
+<<<<<<< HEAD
  * @typedef {UtxoCohortObject | AddressCohortObject | CohortWithoutRelative} CohortObject
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @typedef {UtxoCohortObject | AddressCohortObject} CohortObject
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  *
  * @typedef {Object} AddrCohortGroupObject
@@ -398,8 +391,11 @@
  * @property {readonly AddrCohortObject[]} list
 =======
  * @property {readonly AddressCohortObject[]} list
+<<<<<<< HEAD
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @property {CohortAll} all
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  *
  * @typedef {UtxoCohortGroupObject | AddrCohortGroupObject} CohortGroupObject
  *
@@ -410,8 +406,11 @@
  * @property {readonly CohortAddr[]} list
 =======
  * @property {readonly CohortAddress[]} list
+<<<<<<< HEAD
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @property {CohortAll} all
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  */
 
 // Re-export for type consumers

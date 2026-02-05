@@ -2,8 +2,11 @@
 !scripts/**/_*.js
 *_old.js
 <<<<<<< HEAD
+<<<<<<< HEAD
 *dump*
 TODO.md
 =======
 _*.js
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")

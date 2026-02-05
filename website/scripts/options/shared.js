@@ -9,6 +9,7 @@ import {
   sumsAndAveragesCumulativeWith,
 } from "./series.js";
 import { priceLine, priceLines } from "./constants.js";
+<<<<<<< HEAD
 import { colors } from "../utils/colors.js";
 
 // ============================================================================
@@ -82,12 +83,15 @@ export function flatMapCohortsWithAll(list, all, fn) {
   return [...list.flatMap(fn), ...fn({ ...all, name: "All" }).map((s) => ({ ...s, defaultActive: false }))];
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 }
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
 /**
  * Create a title formatter for chart titles
  * @param {string} [cohortTitle]
  * @returns {(name: string) => string}
  */
+<<<<<<< HEAD
 <<<<<<< HEAD
 export const formatCohortTitle = (cohortTitle) => (name) =>
   cohortTitle ? `${name}: ${cohortTitle}` : name;
@@ -107,9 +111,21 @@ export const formatCohortTitle = (cohortTitle) => (metric) =>
  * @param {Color} [args.color]
  * @param {boolean} [args.defaultActive]
  * @param {number} [args.style]
+=======
+export const formatCohortTitle = (cohortTitle) =>
+  (metric) => cohortTitle ? `${metric}: ${cohortTitle}` : metric;
+
+/**
+ * Create sats/btc/usd line series from a pattern with .sats/.bitcoin/.dollars
+ * @param {{ sats: AnyMetricPattern, bitcoin: AnyMetricPattern, dollars: AnyMetricPattern }} pattern
+ * @param {string} name
+ * @param {Color} [color]
+ * @param {{ defaultActive?: boolean }} [options]
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  * @returns {FetchedLineSeriesBlueprint[]}
  */
-export function satsBtcUsd({ pattern, name, color, defaultActive, style }) {
+export function satsBtcUsd(pattern, name, color, options) {
+  const { defaultActive } = options || {};
   return [
     line({
       series: pattern.btc,
@@ -117,6 +133,7 @@ export function satsBtcUsd({ pattern, name, color, defaultActive, style }) {
       color,
       unit: Unit.btc,
       defaultActive,
+<<<<<<< HEAD
       style,
     }),
     line({
@@ -168,13 +185,17 @@ export function satsBtcUsdBaseline({ pattern, name, color, defaultActive }) {
       unit: Unit.sats,
       defaultActive,
       style,
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
     }),
+    line({ metric: pattern.sats, name, color, unit: Unit.sats, defaultActive }),
     line({
       metric: pattern.dollars,
       name,
       color,
       unit: Unit.usd,
       defaultActive,
+<<<<<<< HEAD
       style,
     }),
   ];
@@ -558,44 +579,48 @@ export function revenueBtcSatsUsd({ coinbase, subsidy, fee, key }) {
       key,
       name: "Fees",
       color: colors.mining.fee,
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
     }),
   ];
 }
 
 /**
  * Build percentile USD mappings from a ratio pattern
- * @param {AnyRatioPattern} ratio
+ * @param {Colors} colors
+ * @param {ActivePriceRatioPattern} ratio
  */
-export function percentileUsdMap(ratio) {
+export function percentileUsdMap(colors, ratio) {
   return /** @type {const} */ ([
-    { name: "pct95", prop: ratio.ratioPct95Usd, color: colors.ratioPct._95 },
-    { name: "pct5", prop: ratio.ratioPct5Usd, color: colors.ratioPct._5 },
-    { name: "pct98", prop: ratio.ratioPct98Usd, color: colors.ratioPct._98 },
-    { name: "pct2", prop: ratio.ratioPct2Usd, color: colors.ratioPct._2 },
-    { name: "pct99", prop: ratio.ratioPct99Usd, color: colors.ratioPct._99 },
-    { name: "pct1", prop: ratio.ratioPct1Usd, color: colors.ratioPct._1 },
+    { name: "pct95", prop: ratio.ratioPct95Usd, color: colors.fuchsia },
+    { name: "pct5", prop: ratio.ratioPct5Usd, color: colors.cyan },
+    { name: "pct98", prop: ratio.ratioPct98Usd, color: colors.pink },
+    { name: "pct2", prop: ratio.ratioPct2Usd, color: colors.sky },
+    { name: "pct99", prop: ratio.ratioPct99Usd, color: colors.rose },
+    { name: "pct1", prop: ratio.ratioPct1Usd, color: colors.blue },
   ]);
 }
 
 /**
  * Build percentile ratio mappings from a ratio pattern
- * @param {AnyRatioPattern} ratio
+ * @param {Colors} colors
+ * @param {ActivePriceRatioPattern} ratio
  */
-export function percentileMap(ratio) {
+export function percentileMap(colors, ratio) {
   return /** @type {const} */ ([
-    { name: "pct95", prop: ratio.ratioPct95, color: colors.ratioPct._95 },
-    { name: "pct5", prop: ratio.ratioPct5, color: colors.ratioPct._5 },
-    { name: "pct98", prop: ratio.ratioPct98, color: colors.ratioPct._98 },
-    { name: "pct2", prop: ratio.ratioPct2, color: colors.ratioPct._2 },
-    { name: "pct99", prop: ratio.ratioPct99, color: colors.ratioPct._99 },
-    { name: "pct1", prop: ratio.ratioPct1, color: colors.ratioPct._1 },
+    { name: "pct95", prop: ratio.ratioPct95, color: colors.fuchsia },
+    { name: "pct5", prop: ratio.ratioPct5, color: colors.cyan },
+    { name: "pct98", prop: ratio.ratioPct98, color: colors.pink },
+    { name: "pct2", prop: ratio.ratioPct2, color: colors.sky },
+    { name: "pct99", prop: ratio.ratioPct99, color: colors.rose },
+    { name: "pct1", prop: ratio.ratioPct1, color: colors.blue },
   ]);
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 }
 
 /**
  * Build SD patterns from a ratio pattern
- * @param {AnyRatioPattern} ratio
+ * @param {ActivePriceRatioPattern} ratio
  */
 export function sdPatterns(ratio) {
   return /** @type {const} */ ([
@@ -628,10 +653,12 @@ export function sdPatterns(ratio) {
 
 /**
  * Build SD band mappings from an SD pattern
+ * @param {Colors} colors
  * @param {Ratio1ySdPattern} sd
  */
-export function sdBandsUsd(sd) {
+export function sdBandsUsd(colors, sd) {
   return /** @type {const} */ ([
+<<<<<<< HEAD
 <<<<<<< HEAD
     { name: "0σ", prop: sd._0sd, color: colors.sd._0 },
     { name: "+0.5σ", prop: sd.p05sd.price, color: colors.sd.p05 },
@@ -661,14 +688,31 @@ export function sdBandsUsd(sd) {
     { name: "+3σ", prop: sd.p3sdUsd, color: colors.sd.p3 },
     { name: "−3σ", prop: sd.m3sdUsd, color: colors.sd.m3 },
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+    { name: "0σ", prop: sd._0sdUsd, color: colors.lime },
+    { name: "+0.5σ", prop: sd.p05sdUsd, color: colors.yellow },
+    { name: "−0.5σ", prop: sd.m05sdUsd, color: colors.teal },
+    { name: "+1σ", prop: sd.p1sdUsd, color: colors.amber },
+    { name: "−1σ", prop: sd.m1sdUsd, color: colors.cyan },
+    { name: "+1.5σ", prop: sd.p15sdUsd, color: colors.orange },
+    { name: "−1.5σ", prop: sd.m15sdUsd, color: colors.sky },
+    { name: "+2σ", prop: sd.p2sdUsd, color: colors.red },
+    { name: "−2σ", prop: sd.m2sdUsd, color: colors.blue },
+    { name: "+2.5σ", prop: sd.p25sdUsd, color: colors.rose },
+    { name: "−2.5σ", prop: sd.m25sdUsd, color: colors.indigo },
+    { name: "+3σ", prop: sd.p3sdUsd, color: colors.pink },
+    { name: "−3σ", prop: sd.m3sdUsd, color: colors.violet },
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   ]);
 }
 
 /**
  * Build SD band mappings (ratio) from an SD pattern
+ * @param {Colors} colors
  * @param {Ratio1ySdPattern} sd
  * @param {AnySeriesPattern} smaRatio
  */
+<<<<<<< HEAD
 <<<<<<< HEAD
 export function sdBandsRatio(sd, smaRatio) {
   return /** @type {const} */ ([
@@ -702,13 +746,32 @@ export function sdBandsRatio(sd) {
     { name: "+3σ", prop: sd.p3sd, color: colors.sd.p3 },
     { name: "−3σ", prop: sd.m3sd, color: colors.sd.m3 },
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+export function sdBandsRatio(colors, sd) {
+  return /** @type {const} */ ([
+    { name: "0σ", prop: sd.sma, color: colors.lime },
+    { name: "+0.5σ", prop: sd.p05sd, color: colors.yellow },
+    { name: "−0.5σ", prop: sd.m05sd, color: colors.teal },
+    { name: "+1σ", prop: sd.p1sd, color: colors.amber },
+    { name: "−1σ", prop: sd.m1sd, color: colors.cyan },
+    { name: "+1.5σ", prop: sd.p15sd, color: colors.orange },
+    { name: "−1.5σ", prop: sd.m15sd, color: colors.sky },
+    { name: "+2σ", prop: sd.p2sd, color: colors.red },
+    { name: "−2σ", prop: sd.m2sd, color: colors.blue },
+    { name: "+2.5σ", prop: sd.p25sd, color: colors.rose },
+    { name: "−2.5σ", prop: sd.m25sd, color: colors.indigo },
+    { name: "+3σ", prop: sd.p3sd, color: colors.pink },
+    { name: "−3σ", prop: sd.m3sd, color: colors.violet },
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   ]);
 }
 
 /**
  * Build ratio SMA series from a ratio pattern
- * @param {AnyRatioPattern} ratio
+ * @param {Colors} colors
+ * @param {ActivePriceRatioPattern} ratio
  */
+<<<<<<< HEAD
 export function ratioSmas(ratio) {
 <<<<<<< HEAD
   return [
@@ -760,28 +823,37 @@ export function ratioBottomSeries(ratio) {
  * @param {AnyPricePattern} args.pricePattern
  * @param {AnyRatioPattern} args.ratio
 =======
+=======
+export function ratioSmas(colors, ratio) {
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   return /** @type {const} */ ([
-    { name: "1w SMA", metric: ratio.ratio1wSma, color: colors.ma._1w },
-    { name: "1m SMA", metric: ratio.ratio1mSma, color: colors.ma._1m },
-    { name: "1y SMA", metric: ratio.ratio1ySd.sma, color: colors.ma._1y },
-    { name: "2y SMA", metric: ratio.ratio2ySd.sma, color: colors.ma._2y },
-    { name: "4y SMA", metric: ratio.ratio4ySd.sma, color: colors.ma._4y },
-    { name: "All SMA", metric: ratio.ratioSd.sma, color: colors.time.all },
+    { name: "1w SMA", metric: ratio.ratio1wSma, color: colors.lime },
+    { name: "1m SMA", metric: ratio.ratio1mSma, color: colors.teal },
+    { name: "1y SMA", metric: ratio.ratio1ySd.sma, color: colors.sky },
+    { name: "2y SMA", metric: ratio.ratio2ySd.sma, color: colors.indigo },
+    { name: "4y SMA", metric: ratio.ratio4ySd.sma, color: colors.purple },
+    { name: "All SMA", metric: ratio.ratioSd.sma, color: colors.rose },
   ]);
 }
 
 /**
  * Create ratio chart from ActivePriceRatioPattern
+ * @param {PartialContext} ctx
  * @param {Object} args
  * @param {(metric: string) => string} args.title
  * @param {AnyPricePattern} args.pricePattern - The price pattern to show in top pane
+<<<<<<< HEAD
  * @param {AnyRatioPattern} args.ratio - The ratio pattern
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @param {ActivePriceRatioPattern} args.ratio - The ratio pattern
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  * @param {Color} args.color
  * @param {string} [args.name]
  * @param {string} [args.legend]
  * @returns {PartialChartOption}
  */
+<<<<<<< HEAD
 <<<<<<< HEAD
 export function createRatioChart({
   title,
@@ -794,6 +866,11 @@ export function createRatioChart({
 =======
 export function createRatioChart({ title, pricePattern, ratio, color, name }) {
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+export function createRatioChart(ctx, { title, pricePattern, ratio, color, name }) {
+  const { colors } = ctx;
+
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   return {
     name: name ?? "Ratio",
     title: title(name ?? "Ratio"),
@@ -802,8 +879,12 @@ export function createRatioChart({ title, pricePattern, ratio, color, name }) {
       price({ series: pricePattern, name: legend ?? "Price", color }),
 =======
       price({ metric: pricePattern, name: "Price", color }),
+<<<<<<< HEAD
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       ...percentileUsdMap(ratio).map(({ name, prop, color }) =>
+=======
+      ...percentileUsdMap(colors, ratio).map(({ name, prop, color }) =>
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
         price({
           series: prop,
           name,
@@ -823,10 +904,10 @@ export function createRatioChart({ title, pricePattern, ratio, color, name }) {
         unit: Unit.ratio,
         base: 1,
       }),
-      ...ratioSmas(ratio).map(({ name, metric, color }) =>
+      ...ratioSmas(colors, ratio).map(({ name, metric, color }) =>
         line({ metric, name, color, unit: Unit.ratio, defaultActive: false }),
       ),
-      ...percentileMap(ratio).map(({ name, prop, color }) =>
+      ...percentileMap(colors, ratio).map(({ name, prop, color }) =>
         line({
           metric: prop,
           name,
@@ -843,25 +924,28 @@ export function createRatioChart({ title, pricePattern, ratio, color, name }) {
 
 /**
  * Create ZScores folder from ActivePriceRatioPattern
+ * @param {PartialContext} ctx
  * @param {Object} args
+<<<<<<< HEAD
 <<<<<<< HEAD
  * @param {(suffix: string) => string} args.formatTitle - Function that takes series suffix and returns full title
 =======
  * @param {(suffix: string) => string} args.formatTitle - Function that takes metric suffix and returns full title
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+ * @param {string} args.title
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  * @param {string} args.legend
  * @param {AnyPricePattern} args.pricePattern - The price pattern to show in top pane
- * @param {AnyRatioPattern} args.ratio - The ratio pattern
+ * @param {ActivePriceRatioPattern} args.ratio - The ratio pattern
  * @param {Color} args.color
  * @returns {PartialOptionsGroup}
  */
-export function createZScoresFolder({
-  formatTitle,
-  legend,
-  pricePattern,
-  ratio,
-  color,
-}) {
+export function createZScoresFolder(
+  ctx,
+  { title, legend, pricePattern, ratio, color },
+) {
+  const { colors } = ctx;
   const sdPats = sdPatterns(ratio);
 
   const zscorePeriods = [
@@ -876,7 +960,7 @@ export function createZScoresFolder({
     tree: [
       {
         name: "Compare",
-        title: formatTitle("Z-Scores"),
+        title: `${title} Z-Scores`,
         top: [
 <<<<<<< HEAD
           price({ series: pricePattern, name: legend, color }),
@@ -903,25 +987,25 @@ export function createZScoresFolder({
           price({
             metric: ratio.ratio1ySd._0sdUsd,
             name: "1y 0σ",
-            color: colors.ma._1y,
+            color: colors.orange,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratio2ySd._0sdUsd,
             name: "2y 0σ",
-            color: colors.ma._2y,
+            color: colors.yellow,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratio4ySd._0sdUsd,
             name: "4y 0σ",
-            color: colors.ma._4y,
+            color: colors.lime,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratioSd._0sdUsd,
             name: "all 0σ",
-            color: colors.time.all,
+            color: colors.blue,
             defaultActive: false,
           }),
         ],
@@ -929,29 +1013,30 @@ export function createZScoresFolder({
           line({
             metric: ratio.ratioSd.zscore,
             name: "All",
-            color: colors.time.all,
+            color: colors.blue,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio4ySd.zscore,
             name: "4y",
-            color: colors.ma._4y,
+            color: colors.lime,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio2ySd.zscore,
             name: "2y",
-            color: colors.ma._2y,
+            color: colors.yellow,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio1ySd.zscore,
             name: "1y",
-            color: colors.ma._1y,
+            color: colors.orange,
             unit: Unit.sd,
           }),
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           ...priceLines({
+            ctx,
             unit: Unit.sd,
             numbers: [0, 1, -1, 2, -2, 3, -3],
             defaultActive: false,
@@ -1038,16 +1123,17 @@ export function createZScoresFolder({
 =======
       ...sdPats.map(({ nameAddon, titleAddon, sd }) => ({
         name: nameAddon,
-        title: formatTitle(`${titleAddon ? `${titleAddon} ` : ""}Z-Score`),
+        title: `${title} ${titleAddon} Z-Score`,
         top: [
           price({ metric: pricePattern, name: legend, color }),
-          ...sdBandsUsd(sd).map(({ name: bandName, prop, color: bandColor }) =>
-            price({
-              metric: prop,
-              name: bandName,
-              color: bandColor,
-              defaultActive: false,
-            }),
+          ...sdBandsUsd(colors, sd).map(
+            ({ name: bandName, prop, color: bandColor }) =>
+              price({
+                metric: prop,
+                name: bandName,
+                color: bandColor,
+                defaultActive: false,
+              }),
           ),
         ],
         bottom: [
@@ -1068,7 +1154,7 @@ export function createZScoresFolder({
             color: colors.gray,
             unit: Unit.percentage,
           }),
-          ...sdBandsRatio(sd).map(
+          ...sdBandsRatio(colors, sd).map(
             ({ name: bandName, prop, color: bandColor }) =>
               line({
                 metric: prop,
@@ -1079,9 +1165,11 @@ export function createZScoresFolder({
               }),
           ),
           priceLine({
+            ctx,
             unit: Unit.sd,
           }),
           ...priceLines({
+            ctx,
             unit: Unit.sd,
             numbers: [1, -1, 2, -2, 3, -3],
             defaultActive: false,
@@ -1092,6 +1180,7 @@ export function createZScoresFolder({
     ],
   };
 }
+<<<<<<< HEAD
 
 /**
  * Create price + ratio + z-scores charts - flat array
@@ -1299,3 +1388,5 @@ export function groupedWindowsCumulativeSatsBtcUsd({
 }
 =======
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
+=======
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")

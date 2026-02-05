@@ -1,15 +1,8 @@
 /**
  * Cohort module - exports all cohort-related functionality
- *
- * Folder builders compose sections from building blocks:
- * - holdings.js: Supply, UTXO Count, Address Count
- * - valuation.js: Realized Cap, Market Cap, MVRV
- * - prices.js: Realized Price, ratios
- * - cost-basis.js: Cost basis percentiles
- * - profitability.js: Unrealized/Realized P&L, Invested Capital
- * - activity.js: SOPR, Volume, Lifespan
  */
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 import {
   formatCohortTitle,
@@ -114,12 +107,25 @@ import {
 } from "./activity.js";
 
 // Re-export data builder
+=======
+// Cohort data builder
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 export { buildCohortData } from "./data.js";
 
-// ============================================================================
-// Single Cohort Folder Builders
-// ============================================================================
+// Cohort folder builders (type-safe!)
+export {
+  createCohortFolderAll,
+  createCohortFolderFull,
+  createCohortFolderWithAdjusted,
+  createCohortFolderWithNupl,
+  createCohortFolderAgeRange,
+  createCohortFolderBasicWithMarketCap,
+  createCohortFolderBasicWithoutMarketCap,
+  createCohortFolderAddress,
+} from "./utxo.js";
+export { createAddressCohortFolder } from "./address.js";
 
+<<<<<<< HEAD
 /**
  * All folder: for the special "All" cohort
  * @param {CohortAll} cohort
@@ -1127,3 +1133,18 @@ export function createUtxoProfitabilitySection({ range, profit, loss }) {
     ],
   };
 }
+=======
+// Shared helpers
+export {
+  createSingleSupplySeries,
+  createGroupedSupplyTotalSeries,
+  createGroupedSupplyInProfitSeries,
+  createGroupedSupplyInLossSeries,
+  createUtxoCountSeries,
+  createAddressCountSeries,
+  createRealizedPriceSeries,
+  createRealizedPriceRatioSeries,
+  createRealizedCapSeries,
+  createCostBasisPercentilesSeries,
+} from "./shared.js";
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")

@@ -153,11 +153,10 @@ export function createLabeledInput({
   if (title) {
     label.title = title;
   }
+  label.htmlFor = inputId;
 
   if (onClick) {
-    input.addEventListener("click", onClick);
-  } else {
-    label.htmlFor = inputId;
+    label.addEventListener("click", onClick);
   }
 
   return {

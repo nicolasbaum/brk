@@ -2,6 +2,7 @@
   color-scheme: light dark;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   --white: oklch(95% 0 0);
   --dark-white: oklch(92.5% 0 0);
   --light-gray: oklch(90% 0 0);
@@ -12,6 +13,9 @@
 =======
   /*--white: oklch(90% 0 0);*/
   --white: oklch(95% 0.01 44);
+=======
+  --white: oklch(99% 0.01 44);
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   --light-gray: oklch(90% 0.01 44);
   --gray: oklch(60% 0.01 44);
   --dark-gray: oklch(30% 0.01 44);

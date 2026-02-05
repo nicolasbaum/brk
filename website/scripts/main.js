@@ -2,6 +2,7 @@ import { initPrice, onPrice } from "./utils/price.js";
 import { brk } from "./client.js";
 import { stringToId } from "./utils/format.js";
 import { onFirstIntersection, getElementById, isHidden } from "./utils/dom.js";
+import { BrkClient } from "./modules/brk-client/index.js";
 import { initOptions } from "./options/full.js";
 import {
   init as initChart,
@@ -109,19 +110,27 @@ function initFrameSelectors() {
 initFrameSelectors();
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 initPrice(brk);
 
 onPrice((price) => {
   console.log("close:", price);
   window.document.title = `${price.toLocaleString("en-us")} | ${window.location.host}`;
 =======
+=======
+// const brk = new BrkClient("https://next.bitview.space");
+const brk = new BrkClient("/");
+
+console.log(`VERSION = ${brk.VERSION}`);
+
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 webSockets.kraken1dCandle.onLatest((latest) => {
   console.log("close:", latest.close);
   window.document.title = `${latest.close.toLocaleString("en-us")} | ${window.location.host}`;
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 });
 
-const options = initOptions();
+const options = initOptions(brk);
 
 window.addEventListener("popstate", (_event) => {
   const path = window.document.location.pathname.split("/").filter((v) => v);
@@ -174,7 +183,7 @@ function initSelected() {
           element = chartElement;
 
           if (firstTimeLoadingChart) {
-            initChart();
+            initChart(brk);
           }
           firstTimeLoadingChart = false;
 

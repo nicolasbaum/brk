@@ -1,6 +1,6 @@
 import { ios, canShare } from "../utils/env.js";
 import { style } from "../utils/elements.js";
-import { colors } from "../utils/colors.js";
+import { colors } from "./colors.js";
 
 export const canCapture = !ios || canShare;
 
@@ -93,12 +93,16 @@ export function capture({ screenshot, chartWidth, parent, legends }) {
       legends[1].element,
 =======
       legends.bottom.element,
+<<<<<<< HEAD
 >>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       pad +
         titleOffset +
         topLegendOffset +
         screenshot.height +
         legendHeight / 2,
+=======
+      pad + titleOffset + topLegendOffset + screenshot.height + legendHeight / 2,
+>>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
     );
   }
 
@@ -107,11 +111,7 @@ export function capture({ screenshot, chartWidth, parent, legends }) {
   ctx.font = `${fontSize}px ${style.fontFamily}`;
   ctx.textAlign = "right";
   ctx.textBaseline = "bottom";
-  ctx.fillText(
-    window.location.host,
-    canvas.width - pad,
-    canvas.height - pad / 2,
-  );
+  ctx.fillText(window.location.host, canvas.width - pad, canvas.height - pad / 2);
 
   // Open in new tab
   canvas.toBlob((blob) => {
