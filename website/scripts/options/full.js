@@ -110,9 +110,10 @@ export function initOptions(brk) {
 
     for (const blueprint of arr || []) {
       if (!blueprint.metric) {
-        throw new Error(
-          `Blueprint missing metric: ${JSON.stringify(blueprint)}`,
+        console.warn(
+          `Blueprint missing metric (skipping): ${JSON.stringify(blueprint)}`,
         );
+        continue;
       }
 
       // Auto-expand ActivePricePattern into USD and sats versions
@@ -136,7 +137,8 @@ export function initOptions(brk) {
       const regularBlueprint = /** @type {AnyFetchedSeriesBlueprint} */ (blueprint);
 
       if (!regularBlueprint.unit) {
-        throw new Error(`Blueprint missing unit: ${regularBlueprint.title}`);
+        console.warn(`Blueprint missing unit (skipping): ${regularBlueprint.title}`);
+        continue;
       }
       markUsed(regularBlueprint.metric);
       const unit = regularBlueprint.unit;
