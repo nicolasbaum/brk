@@ -1,7 +1,5 @@
 /** Constant helpers for creating price lines and reference lines */
 
-import { colors } from "../utils/colors.js";
-import { brk } from "../client.js";
 import { line } from "./series.js";
 
 /**
@@ -25,14 +23,14 @@ export function getConstant(constants, num) {
 
 /**
  * Create a price line series (horizontal reference line)
- * @param {{ number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'metric'>} args
+ * @param {{ ctx: PartialContext, number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'metric'>} args
  */
 export function priceLine(args) {
   return line({
     ...args,
-    metric: getConstant(brk.metrics.constants, args.number || 0),
+    metric: getConstant(args.ctx.brk.metrics.constants, args.number || 0),
     name: args.name || `${args.number ?? 0}`,
-    color: args.color ?? colors.gray,
+    color: args.color ?? args.ctx.colors.gray,
     options: {
       lineStyle: args.style ?? 4,
       lastValueVisible: false,

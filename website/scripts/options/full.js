@@ -3,20 +3,16 @@ import { createButtonElement, createAnchorElement } from "../utils/dom.js";
 import { pushHistory, resetParams } from "../utils/url.js";
 import { readStored, writeToStorage } from "../utils/storage.js";
 import { stringToId } from "../utils/format.js";
-import {
-  collect,
-  markUsed,
-  logUnused,
-  extractTreeStructure,
-} from "./unused.js";
-import { localhost } from "../utils/env.js";
+import { collect, markUsed, logUnused } from "./unused.js";
 import { setQr } from "../panes/share.js";
 import { getConstant } from "./constants.js";
-import { colors } from "../utils/colors.js";
+import { colors } from "../chart/colors.js";
 import { Unit } from "../utils/units.js";
-import { brk } from "../client.js";
 
-export function initOptions() {
+/**
+ * @param {BrkClient} brk
+ */
+export function initOptions(brk) {
   collect(brk.metrics);
 
   const LS_SELECTED_KEY = `selected_path`;
@@ -28,13 +24,11 @@ export function initOptions() {
   const savedPath = /** @type {string[]} */ (
     JSON.parse(readStored(LS_SELECTED_KEY) || "[]") || []
   ).filter((v) => v);
+  console.log(savedPath);
 
-  const partialOptions = createPartialOptions();
-
-  // Log tree structure for analysis (localhost only)
-  if (localhost) {
-    console.log(extractTreeStructure(partialOptions));
-  }
+  const partialOptions = createPartialOptions({
+    brk,
+  });
 
   /** @type {Option[]} */
   const list = [];
@@ -90,96 +84,95 @@ export function initOptions() {
   }
 
   /**
+   * Check if a metric is an ActivePricePattern (has dollars and sats sub-metrics)
+   * @param {any} metric
+   * @returns {metric is ActivePricePattern}
+   */
+  function isActivePricePattern(metric) {
+    return (
+      metric &&
+      typeof metric === "object" &&
+      "dollars" in metric &&
+      "sats" in metric &&
+      metric.dollars?.by &&
+      metric.sats?.by
+    );
+  }
+
+  /**
    * @param {(AnyFetchedSeriesBlueprint | FetchedPriceSeriesBlueprint)[]} [arr]
    */
-  function arrayToMap(arr) {
+  function arrayToMap(arr = []) {
     /** @type {Map<Unit, AnyFetchedSeriesBlueprint[]>} */
     const map = new Map();
     /** @type {Map<Unit, Set<number>>} */
     const priceLines = new Map();
 
-    if (!arr) return map;
-
-    // Cache arrays for common units outside loop
-    /** @type {AnyFetchedSeriesBlueprint[] | undefined} */
-    let usdArr;
-    /** @type {AnyFetchedSeriesBlueprint[] | undefined} */
-    let satsArr;
-
-    for (let i = 0; i < arr.length; i++) {
-      const blueprint = arr[i];
-
-      // Check for undefined metric
+    for (const blueprint of arr || []) {
       if (!blueprint.metric) {
-        throw new Error(`Blueprint has undefined metric: ${blueprint.title}`);
+        throw new Error(
+          `Blueprint missing metric: ${JSON.stringify(blueprint)}`,
+        );
       }
 
-      // Check for price pattern blueprint (has dollars/sats sub-metrics)
-      // Use unknown cast for safe property access check
-      const maybePriceMetric =
-        /** @type {{ dollars?: AnyMetricPattern, sats?: AnyMetricPattern }} */ (
-          /** @type {unknown} */ (blueprint.metric)
-        );
-      if (maybePriceMetric.dollars?.by && maybePriceMetric.sats?.by) {
-        const { dollars, sats } = maybePriceMetric;
-        markUsed(dollars);
-        if (!usdArr) map.set(Unit.usd, (usdArr = []));
-        usdArr.push({ ...blueprint, metric: dollars, unit: Unit.usd });
+      // Auto-expand ActivePricePattern into USD and sats versions
+      if (isActivePricePattern(blueprint.metric)) {
+        const pricePattern = /** @type {AnyPricePattern} */ (blueprint.metric);
 
-        markUsed(sats);
-        if (!satsArr) map.set(Unit.sats, (satsArr = []));
-        satsArr.push({ ...blueprint, metric: sats, unit: Unit.sats });
+        // USD version
+        markUsed(pricePattern.dollars);
+        if (!map.has(Unit.usd)) map.set(Unit.usd, []);
+        map.get(Unit.usd)?.push({ ...blueprint, metric: pricePattern.dollars, unit: Unit.usd });
+
+        // Sats version
+        markUsed(pricePattern.sats);
+        if (!map.has(Unit.sats)) map.set(Unit.sats, []);
+        map.get(Unit.sats)?.push({ ...blueprint, metric: pricePattern.sats, unit: Unit.sats });
+
         continue;
       }
 
-      // After continue, we know this is a regular metric blueprint
-      const regularBlueprint = /** @type {AnyFetchedSeriesBlueprint} */ (
-        blueprint
-      );
-      const metric = regularBlueprint.metric;
-      const unit = regularBlueprint.unit;
-      if (!unit) continue;
+      // At this point, blueprint is definitely an AnyFetchedSeriesBlueprint (not a price pattern)
+      const regularBlueprint = /** @type {AnyFetchedSeriesBlueprint} */ (blueprint);
 
-      markUsed(metric);
-      let unitArr = map.get(unit);
-      if (!unitArr) map.set(unit, (unitArr = []));
-      unitArr.push(regularBlueprint);
+      if (!regularBlueprint.unit) {
+        throw new Error(`Blueprint missing unit: ${regularBlueprint.title}`);
+      }
+      markUsed(regularBlueprint.metric);
+      const unit = regularBlueprint.unit;
+      if (!map.has(unit)) {
+        map.set(unit, []);
+      }
+      map.get(unit)?.push(regularBlueprint);
 
       // Track baseline base values for auto price lines
-      const type = regularBlueprint.type;
-      if (type === "Baseline") {
-        let priceSet = priceLines.get(unit);
-        if (!priceSet) priceLines.set(unit, (priceSet = new Set()));
-        priceSet.add(regularBlueprint.options?.baseValue?.price ?? 0);
-      } else if (!type || type === "Line") {
-        // Check if manual price line - avoid Object.values() array allocation
-        const by = metric.by;
-        for (const k in by) {
-          if (by[/** @type {Index} */ (k)]?.path?.includes("constant_")) {
-            priceLines.get(unit)?.delete(parseFloat(regularBlueprint.title));
-          }
-          break;
+      if (regularBlueprint.type === "Baseline") {
+        const baseValue = regularBlueprint.options?.baseValue?.price ?? 0;
+        if (!priceLines.has(unit)) priceLines.set(unit, new Set());
+        priceLines.get(unit)?.add(baseValue);
+      }
+
+      // Remove from set if manual price line already exists
+      // Note: line() doesn't set type, so undefined means Line
+      if (regularBlueprint.type === "Line" || regularBlueprint.type === undefined) {
+        const path = Object.values(regularBlueprint.metric.by)[0]?.path ?? "";
+        if (path.includes("constant_")) {
+          priceLines.get(unit)?.delete(parseFloat(regularBlueprint.title));
         }
       }
     }
 
     // Add price lines at end for remaining values
     for (const [unit, values] of priceLines) {
-      const arr = map.get(unit);
-      if (!arr) continue;
       for (const baseValue of values) {
         const metric = getConstant(brk.metrics.constants, baseValue);
         markUsed(metric);
-        arr.push({
+        map.get(unit)?.push({
           metric,
           title: `${baseValue}`,
           color: colors.gray,
           unit,
-          options: {
-            lineStyle: 4,
-            lastValueVisible: false,
-            crosshairMarkerVisible: false,
-          },
+          options: { lineStyle: 4, lastValueVisible: false, crosshairMarkerVisible: false },
         });
       }
     }
@@ -245,41 +238,30 @@ export function initOptions() {
    * @typedef {ProcessedGroup | ProcessedOption} ProcessedNode
    */
 
-  // Pre-compute path strings for faster comparison
-  const urlPathStr = urlPath?.join("/");
-  const savedPathStr = savedPath?.join("/");
-
   /**
    * @param {PartialOptionsTree} partialTree
    * @param {string[]} parentPath
-   * @param {string} parentPathStr
-   * @returns {{ nodes: ProcessedNode[], count: number }}
+   * @returns {ProcessedNode[]}
    */
-  function processPartialTree(
-    partialTree,
-    parentPath = [],
-    parentPathStr = "",
-  ) {
+  function processPartialTree(partialTree, parentPath = []) {
     /** @type {ProcessedNode[]} */
     const nodes = [];
-    let totalCount = 0;
 
-    for (let i = 0; i < partialTree.length; i++) {
-      const anyPartial = partialTree[i];
+    for (const anyPartial of partialTree) {
       if ("tree" in anyPartial) {
         const serName = stringToId(anyPartial.name);
-        const pathStr = parentPathStr ? `${parentPathStr}/${serName}` : serName;
-        const path = parentPath.concat(serName);
-        const { nodes: children, count } = processPartialTree(
-          anyPartial.tree,
-          path,
-          pathStr,
+        const path = [...parentPath, serName];
+        const children = processPartialTree(anyPartial.tree, path);
+
+        // Compute count from children
+        const count = children.reduce(
+          (sum, child) => sum + (child.type === "group" ? child.count : 1),
+          0,
         );
 
         // Skip groups with no children
         if (count === 0) continue;
 
-        totalCount += count;
         nodes.push({
           type: "group",
           name: anyPartial.name,
@@ -291,23 +273,39 @@ export function initOptions() {
       } else {
         const option = /** @type {Option} */ (anyPartial);
         const name = option.name;
-        const serName = stringToId(name);
-        const pathStr = parentPathStr ? `${parentPathStr}/${serName}` : serName;
-        const path = parentPath.concat(serName);
+        const path = [...parentPath, stringToId(option.name)];
 
         // Transform partial to full option
         if ("kind" in anyPartial && anyPartial.kind === "explorer") {
-          option.kind = anyPartial.kind;
-          option.path = path;
-          option.name = name;
+          Object.assign(
+            option,
+            /** @satisfies {ExplorerOption} */ ({
+              kind: anyPartial.kind,
+              path,
+              name,
+              title: option.title,
+            }),
+          );
         } else if ("kind" in anyPartial && anyPartial.kind === "table") {
-          option.kind = anyPartial.kind;
-          option.path = path;
-          option.name = name;
+          Object.assign(
+            option,
+            /** @satisfies {TableOption} */ ({
+              kind: anyPartial.kind,
+              path,
+              name,
+              title: option.title,
+            }),
+          );
         } else if ("kind" in anyPartial && anyPartial.kind === "simulation") {
-          option.kind = anyPartial.kind;
-          option.path = path;
-          option.name = name;
+          Object.assign(
+            option,
+            /** @satisfies {SimulationOption} */ ({
+              kind: anyPartial.kind,
+              path,
+              name,
+              title: anyPartial.title,
+            }),
+          );
         } else if ("url" in anyPartial) {
           Object.assign(
             option,
@@ -321,7 +319,7 @@ export function initOptions() {
             }),
           );
         } else {
-          const title = option.title || name;
+          const title = option.title || option.name;
           Object.assign(
             option,
             /** @satisfies {ChartOption} */ ({
@@ -336,13 +334,22 @@ export function initOptions() {
         }
 
         list.push(option);
-        totalCount++;
 
-        // Check if this matches URL or saved path (string comparison is faster)
-        if (urlPathStr && pathStr === urlPathStr) {
-          selected.set(option);
-        } else if (savedPathStr && pathStr === savedPathStr) {
-          savedOption = option;
+        // Check if this matches URL or saved path
+        if (urlPath) {
+          const sameAsURLPath =
+            urlPath.length === path.length &&
+            urlPath.every((val, i) => val === path[i]);
+          if (sameAsURLPath) {
+            selected.set(option);
+          }
+        } else if (savedPath) {
+          const sameAsSavedPath =
+            savedPath.length === path.length &&
+            savedPath.every((val, i) => val === path[i]);
+          if (sameAsSavedPath) {
+            savedOption = option;
+          }
         }
 
         nodes.push({
@@ -353,10 +360,10 @@ export function initOptions() {
       }
     }
 
-    return { nodes, count: totalCount };
+    return nodes;
   }
 
-  const { nodes: processedTree } = processPartialTree(partialOptions);
+  const processedTree = processPartialTree(partialOptions);
   logUnused();
 
   /**

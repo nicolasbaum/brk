@@ -1,14 +1,45 @@
-import { colors } from "../utils/colors.js";
-import { brk } from "../client.js";
 import { Unit } from "../utils/units.js";
-import { dots, line, price } from "./series.js";
-import { satsBtcUsd, createPriceRatioCharts } from "./shared.js";
+import { line, price } from "./series.js";
+import {
+  satsBtcUsd,
+  createRatioChart,
+  createZScoresFolder,
+  formatCohortTitle,
+} from "./shared.js";
+
+/**
+ * Create price with ratio options for cointime prices
+ * @param {PartialContext} ctx
+ * @param {Object} args
+ * @param {string} args.title
+ * @param {string} args.legend
+ * @param {AnyPricePattern} args.pricePattern
+ * @param {ActivePriceRatioPattern} args.ratio
+ * @param {Color} args.color
+ * @returns {PartialOptionsTree}
+ */
+function createCointimePriceWithRatioOptions(
+  ctx,
+  { title, legend, pricePattern, ratio, color },
+) {
+  return [
+    {
+      name: "Price",
+      title,
+      top: [price({ metric: pricePattern, name: legend, color })],
+    },
+    createRatioChart(ctx, { title: formatCohortTitle(title), pricePattern, ratio, color }),
+    createZScoresFolder(ctx, { title, legend, pricePattern, ratio, color }),
+  ];
+}
 
 /**
  * Create Cointime section
+ * @param {PartialContext} ctx
  * @returns {PartialOptionsGroup}
  */
-export function createCointimeSection() {
+export function createCointimeSection(ctx) {
+  const { colors, brk } = ctx;
   const { cointime, distribution, supply } = brk.metrics;
   const {
     pricing,
@@ -21,415 +52,244 @@ export function createCointimeSection() {
   } = cointime;
   const { all } = distribution.utxoCohorts;
 
-  // Reference lines for cap comparisons
-  const capReferenceLines = /** @type {const} */ ([
-    { metric: supply.marketCap, name: "Market", color: colors.default },
-    {
-      metric: all.realized.realizedCap,
-      name: "Realized",
-      color: colors.realized,
-    },
-  ]);
-
-  const prices = /** @type {const} */ ([
+  // Cointime prices data
+  const cointimePrices = [
     {
       pricePattern: pricing.trueMarketMean,
       ratio: pricing.trueMarketMeanRatio,
       name: "True Market Mean",
-      color: colors.trueMarketMean,
+      title: "True Market Mean",
+      color: colors.blue,
     },
     {
       pricePattern: pricing.vaultedPrice,
       ratio: pricing.vaultedPriceRatio,
       name: "Vaulted",
-      color: colors.vaulted,
+      title: "Vaulted Price",
+      color: colors.lime,
     },
     {
       pricePattern: pricing.activePrice,
       ratio: pricing.activePriceRatio,
       name: "Active",
-      color: colors.active,
+      title: "Active Price",
+      color: colors.rose,
     },
     {
       pricePattern: pricing.cointimePrice,
       ratio: pricing.cointimePriceRatio,
       name: "Cointime",
-      color: colors.cointime,
+      title: "Cointime Price",
+      color: colors.yellow,
     },
-  ]);
+  ];
 
-  const caps = /** @type {const} */ ([
-    { metric: cap.vaultedCap, name: "Vaulted", color: colors.vaulted },
-    { metric: cap.activeCap, name: "Active", color: colors.active },
-    { metric: cap.cointimeCap, name: "Cointime", color: colors.cointime },
-    { metric: cap.investorCap, name: "Investor", color: colors.investor },
-    { metric: cap.thermoCap, name: "Thermo", color: colors.thermo },
-  ]);
-
-  const supplyBreakdown = /** @type {const} */ ([
-    { pattern: all.supply.total, name: "Total", color: colors.bitcoin },
+  // Cointime capitalizations data
+  const cointimeCapitalizations = [
     {
-      pattern: cointimeSupply.vaultedSupply,
+      metric: cap.vaultedCap,
       name: "Vaulted",
-      color: colors.vaulted,
+      title: "Vaulted Cap",
+      color: colors.lime,
     },
     {
-      pattern: cointimeSupply.activeSupply,
+      metric: cap.activeCap,
       name: "Active",
-      color: colors.active,
-    },
-  ]);
-
-  const coinblocks = /** @type {const} */ ([
-    {
-      pattern: all.activity.coinblocksDestroyed,
-      name: "Destroyed",
-      title: "Coinblocks Destroyed",
-      color: colors.destroyed,
+      title: "Active Cap",
+      color: colors.rose,
     },
     {
-      pattern: activity.coinblocksCreated,
-      name: "Created",
-      title: "Coinblocks Created",
-      color: colors.created,
+      metric: cap.cointimeCap,
+      name: "Cointime",
+      title: "Cointime Cap",
+      color: colors.yellow,
     },
     {
-      pattern: activity.coinblocksStored,
-      name: "Stored",
-      title: "Coinblocks Stored",
-      color: colors.stored,
-    },
-  ]);
-
-  // Colors aligned with coinblocks: Destroyed=red, Created=orange, Stored=green
-  const cointimeValues = /** @type {const} */ ([
-    {
-      pattern: value.cointimeValueCreated,
-      name: "Created",
-      title: "Cointime Value Created",
-      color: colors.created,
+      metric: cap.investorCap,
+      name: "Investor",
+      title: "Investor Cap",
+      color: colors.fuchsia,
     },
     {
-      pattern: value.cointimeValueDestroyed,
-      name: "Destroyed",
-      title: "Cointime Value Destroyed",
-      color: colors.destroyed,
+      metric: cap.thermoCap,
+      name: "Thermo",
+      title: "Thermo Cap",
+      color: colors.emerald,
     },
-    {
-      pattern: value.cointimeValueStored,
-      name: "Stored",
-      title: "Cointime Value Stored",
-      color: colors.stored,
-    },
-  ]);
-
-  const vocdd = /** @type {const} */ ({
-    pattern: value.vocdd,
-    name: "VOCDD",
-    title: "Value of Coin Days Destroyed",
-    color: colors.vocdd,
-  });
+  ];
 
   return {
     name: "Cointime",
     tree: [
-      // Prices - the core pricing models
+      // Prices
       {
         name: "Prices",
         tree: [
           {
             name: "Compare",
             title: "Cointime Prices",
-            top: [
-              price({
-                metric: all.realized.realizedPrice,
-                name: "Realized",
-                color: colors.realized,
-              }),
-              price({
-                metric: all.realized.investorPrice,
-                name: "Investor",
-                color: colors.investor,
-              }),
-              ...prices.map(({ pricePattern, name, color }) =>
-                price({ metric: pricePattern, name, color }),
-              ),
-            ],
+            top: cointimePrices.map(({ pricePattern, name, color }) =>
+              price({ metric: pricePattern, name, color }),
+            ),
           },
-          ...prices.map(({ pricePattern, ratio, name, color }) => ({
+          ...cointimePrices.map(({ pricePattern, ratio, name, color, title }) => ({
             name,
-            tree: createPriceRatioCharts({
-              context: `${name} Price`,
-              legend: name,
+            tree: createCointimePriceWithRatioOptions(ctx, {
               pricePattern,
               ratio,
+              legend: name,
               color,
-              priceReferences: [
-                price({
-                  metric: all.realized.realizedPrice,
-                  name: "Realized",
-                  color: colors.realized,
-                  defaultActive: false,
-                }),
-              ],
+              title,
             }),
           })),
         ],
       },
 
-      // Caps - market capitalizations from different models
+      // Capitalization
       {
-        name: "Caps",
+        name: "Capitalization",
         tree: [
           {
             name: "Compare",
             title: "Cointime Caps",
             bottom: [
-              ...capReferenceLines.map(({ metric, name, color }) =>
-                line({ metric, name, color, unit: Unit.usd }),
-              ),
-              ...caps.map(({ metric, name, color }) =>
+              line({
+                metric: supply.marketCap,
+                name: "Market",
+                color: colors.default,
+                unit: Unit.usd,
+              }),
+              line({
+                metric: all.realized.realizedCap,
+                name: "Realized",
+                color: colors.orange,
+                unit: Unit.usd,
+              }),
+              ...cointimeCapitalizations.map(({ metric, name, color }) =>
                 line({ metric, name, color, unit: Unit.usd }),
               ),
             ],
           },
-          ...caps.map(({ metric, name, color }) => ({
+          ...cointimeCapitalizations.map(({ metric, name, color, title }) => ({
             name,
-            title: `${name} Cap`,
+            title,
             bottom: [
               line({ metric, name, color, unit: Unit.usd }),
-              ...capReferenceLines.map((ref) =>
-                line({
-                  metric: ref.metric,
-                  name: ref.name,
-                  color: ref.color,
-                  unit: Unit.usd,
-                }),
-              ),
+              line({
+                metric: supply.marketCap,
+                name: "Market",
+                color: colors.default,
+                unit: Unit.usd,
+              }),
+              line({
+                metric: all.realized.realizedCap,
+                name: "Realized",
+                color: colors.orange,
+                unit: Unit.usd,
+              }),
             ],
           })),
         ],
       },
 
-      // Supply - active vs vaulted breakdown
+      // Supply
       {
         name: "Supply",
-        title: "Active vs Vaulted Supply",
-        bottom: supplyBreakdown.flatMap(({ pattern, name, color }) =>
-          satsBtcUsd({ pattern, name, color }),
-        ),
+        title: "Cointime Supply",
+        bottom: [
+          ...satsBtcUsd(all.supply.total, "All", colors.orange),
+          ...satsBtcUsd(cointimeSupply.vaultedSupply, "Vaulted", colors.lime),
+          ...satsBtcUsd(cointimeSupply.activeSupply, "Active", colors.rose),
+        ],
       },
 
-      // Liveliness - the foundational cointime ratios
+      // Liveliness & Vaultedness
       {
-        name: "Activity",
+        name: "Liveliness & Vaultedness",
         title: "Liveliness & Vaultedness",
         bottom: [
           line({
             metric: activity.liveliness,
             name: "Liveliness",
-            color: colors.liveliness,
+            color: colors.rose,
             unit: Unit.ratio,
           }),
           line({
             metric: activity.vaultedness,
             name: "Vaultedness",
-            color: colors.vaulted,
+            color: colors.lime,
             unit: Unit.ratio,
           }),
           line({
             metric: activity.activityToVaultednessRatio,
-            name: "L/V Ratio",
-            color: colors.activity,
+            name: "Liveliness / Vaultedness",
+            color: colors.purple,
             unit: Unit.ratio,
-            defaultActive: false,
           }),
         ],
       },
 
-      // Coinblocks - created, destroyed, stored
+      // Coinblocks
       {
         name: "Coinblocks",
-        tree: [
-          {
-            name: "Compare",
-            tree: [
-              {
-                name: "Sum",
-                title: "Coinblocks",
-                bottom: coinblocks.map(({ pattern, name, color }) =>
-                  line({
-                    metric: pattern.sum,
-                    name,
-                    color,
-                    unit: Unit.coinblocks,
-                  }),
-                ),
-              },
-              {
-                name: "Cumulative",
-                title: "Coinblocks (Total)",
-                bottom: coinblocks.map(({ pattern, name, color }) =>
-                  line({
-                    metric: pattern.cumulative,
-                    name,
-                    color,
-                    unit: Unit.coinblocks,
-                  }),
-                ),
-              },
-            ],
-          },
-          ...coinblocks.map(({ pattern, name, title, color }) => ({
-            name,
-            tree: [
-              {
-                name: "Sum",
-                title,
-                bottom: [
-                  line({
-                    metric: pattern.sum,
-                    name,
-                    color,
-                    unit: Unit.coinblocks,
-                  }),
-                ],
-              },
-              {
-                name: "Cumulative",
-                title: `${title} (Total)`,
-                bottom: [
-                  line({
-                    metric: pattern.cumulative,
-                    name,
-                    color,
-                    unit: Unit.coinblocks,
-                  }),
-                ],
-              },
-            ],
-          })),
+        title: "Coinblocks",
+        bottom: [
+          // Destroyed comes from the all cohort's activity
+          line({
+            metric: all.activity.coinblocksDestroyed.sum,
+            name: "Destroyed",
+            color: colors.red,
+            unit: Unit.coinblocks,
+          }),
+          line({
+            metric: all.activity.coinblocksDestroyed.cumulative,
+            name: "Cumulative Destroyed",
+            color: colors.red,
+            defaultActive: false,
+            unit: Unit.coinblocks,
+          }),
+          // Created and stored from cointime
+          line({
+            metric: activity.coinblocksCreated.sum,
+            name: "Created",
+            color: colors.orange,
+            unit: Unit.coinblocks,
+          }),
+          line({
+            metric: activity.coinblocksCreated.cumulative,
+            name: "Cumulative Created",
+            color: colors.orange,
+            defaultActive: false,
+            unit: Unit.coinblocks,
+          }),
+          line({
+            metric: activity.coinblocksStored.sum,
+            name: "Stored",
+            color: colors.green,
+            unit: Unit.coinblocks,
+          }),
+          line({
+            metric: activity.coinblocksStored.cumulative,
+            name: "Cumulative Stored",
+            color: colors.green,
+            defaultActive: false,
+            unit: Unit.coinblocks,
+          }),
         ],
       },
 
-      // Value - cointime value flows
+      // Reserve Risk
       {
-        name: "Value",
+        name: "Reserve Risk",
         tree: [
           {
-            name: "Compare",
-            tree: [
-              {
-                name: "Sum",
-                title: "Cointime Value",
-                bottom: [
-                  ...cointimeValues.map(({ pattern, name, color }) =>
-                    line({ metric: pattern.sum, name, color, unit: Unit.usd }),
-                  ),
-                  line({
-                    metric: vocdd.pattern.sum,
-                    name: vocdd.name,
-                    color: vocdd.color,
-                    unit: Unit.usd,
-                  }),
-                ],
-              },
-              {
-                name: "Cumulative",
-                title: "Cointime Value (Total)",
-                bottom: [
-                  ...cointimeValues.map(({ pattern, name, color }) =>
-                    line({
-                      metric: pattern.cumulative,
-                      name,
-                      color,
-                      unit: Unit.usd,
-                    }),
-                  ),
-                  line({
-                    metric: vocdd.pattern.cumulative,
-                    name: vocdd.name,
-                    color: vocdd.color,
-                    unit: Unit.usd,
-                  }),
-                ],
-              },
-            ],
-          },
-          ...cointimeValues.map(({ pattern, name, title, color }) => ({
-            name,
-            tree: [
-              {
-                name: "Sum",
-                title,
-                bottom: [
-                  line({ metric: pattern.sum, name, color, unit: Unit.usd }),
-                ],
-              },
-              {
-                name: "Cumulative",
-                title: `${title} (Total)`,
-                bottom: [
-                  line({
-                    metric: pattern.cumulative,
-                    name,
-                    color,
-                    unit: Unit.usd,
-                  }),
-                ],
-              },
-            ],
-          })),
-          {
-            name: vocdd.name,
-            tree: [
-              {
-                name: "Sum",
-                title: vocdd.title,
-                bottom: [
-                  line({
-                    metric: vocdd.pattern.sum,
-                    name: vocdd.name,
-                    color: vocdd.color,
-                    unit: Unit.usd,
-                  }),
-                  line({
-                    metric: reserveRisk.vocdd365dMedian,
-                    name: "365d Median",
-                    color: colors.ma._1y,
-                    unit: Unit.usd,
-                  }),
-                ],
-              },
-              {
-                name: "Cumulative",
-                title: `${vocdd.title} (Total)`,
-                bottom: [
-                  line({
-                    metric: vocdd.pattern.cumulative,
-                    name: vocdd.name,
-                    color: vocdd.color,
-                    unit: Unit.usd,
-                  }),
-                ],
-              },
-            ],
-          },
-        ],
-      },
-
-      // Indicators - derived decision metrics
-      {
-        name: "Indicators",
-        tree: [
-          {
-            name: "Reserve Risk",
+            name: "Ratio",
             title: "Reserve Risk",
             bottom: [
               line({
                 metric: reserveRisk.reserveRisk,
-                name: "Ratio",
-                color: colors.reserveRisk,
+                name: "Reserve Risk",
+                color: colors.orange,
                 unit: Unit.ratio,
               }),
             ],
@@ -440,76 +300,162 @@ export function createCointimeSection() {
             bottom: [
               line({
                 metric: reserveRisk.hodlBank,
-                name: "Value",
-                color: colors.hodlBank,
-                unit: Unit.usd,
+                name: "HODL Bank",
+                color: colors.blue,
+                unit: Unit.ratio,
+              }),
+            ],
+          },
+          {
+            name: "VOCDD 365d SMA",
+            title: "VOCDD 365d SMA",
+            bottom: [
+              line({
+                metric: reserveRisk.vocdd365dSma,
+                name: "VOCDD 365d SMA",
+                color: colors.purple,
+                unit: Unit.ratio,
               }),
             ],
           },
         ],
       },
 
-      // Cointime-Adjusted - comparing base vs adjusted metrics
+      // Cointime Value
       {
-        name: "Cointime-Adjusted",
+        name: "Value",
         tree: [
           {
-            name: "Inflation",
-            title: "Cointime-Adjusted Inflation",
+            name: "Created",
+            title: "Cointime Value Created",
             bottom: [
-              dots({
-                metric: supply.inflation,
-                name: "Base",
-                color: colors.base,
-                unit: Unit.percentage,
+              line({
+                metric: value.cointimeValueCreated.sum,
+                name: "Created",
+                color: colors.green,
+                unit: Unit.usd,
               }),
-              dots({
-                metric: adjusted.cointimeAdjInflationRate,
-                name: "Cointime-Adjusted",
-                color: colors.adjusted,
-                unit: Unit.percentage,
+              line({
+                metric: value.cointimeValueCreated.cumulative,
+                name: "Cumulative",
+                color: colors.green,
+                unit: Unit.usd,
+                defaultActive: false,
               }),
             ],
           },
           {
+            name: "Destroyed",
+            title: "Cointime Value Destroyed",
+            bottom: [
+              line({
+                metric: value.cointimeValueDestroyed.sum,
+                name: "Destroyed",
+                color: colors.red,
+                unit: Unit.usd,
+              }),
+              line({
+                metric: value.cointimeValueDestroyed.cumulative,
+                name: "Cumulative",
+                color: colors.red,
+                unit: Unit.usd,
+                defaultActive: false,
+              }),
+            ],
+          },
+          {
+            name: "Stored",
+            title: "Cointime Value Stored",
+            bottom: [
+              line({
+                metric: value.cointimeValueStored.sum,
+                name: "Stored",
+                color: colors.blue,
+                unit: Unit.usd,
+              }),
+              line({
+                metric: value.cointimeValueStored.cumulative,
+                name: "Cumulative",
+                color: colors.blue,
+                unit: Unit.usd,
+                defaultActive: false,
+              }),
+            ],
+          },
+          {
+            name: "VOCDD",
+            title: "VOCDD (Value of Coin Days Destroyed)",
+            bottom: [
+              line({
+                metric: value.vocdd.sum,
+                name: "VOCDD",
+                color: colors.orange,
+                unit: Unit.usd,
+              }),
+              line({
+                metric: value.vocdd.cumulative,
+                name: "Cumulative",
+                color: colors.orange,
+                unit: Unit.usd,
+                defaultActive: false,
+              }),
+            ],
+          },
+        ],
+      },
+
+      // Adjusted metrics
+      {
+        name: "Adjusted",
+        tree: [
+          // Inflation
+          {
+            name: "Inflation",
+            title: "Adjusted Inflation",
+            bottom: [
+              line({
+                metric: supply.inflation,
+                name: "Base",
+                color: colors.orange,
+                unit: Unit.percentage,
+              }),
+              line({
+                metric: adjusted.cointimeAdjInflationRate,
+                name: "Adjusted",
+                color: colors.purple,
+                unit: Unit.percentage,
+              }),
+            ],
+          },
+          // Velocity
+          {
             name: "Velocity",
-            tree: [
-              {
+            title: "Adjusted Velocity",
+            bottom: [
+              line({
+                metric: supply.velocity.btc,
                 name: "BTC",
-                title: "Cointime-Adjusted BTC Velocity",
-                bottom: [
-                  line({
-                    metric: supply.velocity.btc,
-                    name: "Base",
-                    color: colors.base,
-                    unit: Unit.ratio,
-                  }),
-                  line({
-                    metric: adjusted.cointimeAdjTxBtcVelocity,
-                    name: "Cointime-Adjusted",
-                    color: colors.adjusted,
-                    unit: Unit.ratio,
-                  }),
-                ],
-              },
-              {
+                color: colors.orange,
+                unit: Unit.ratio,
+              }),
+              line({
+                metric: adjusted.cointimeAdjTxBtcVelocity,
+                name: "Adj. BTC",
+                color: colors.red,
+                unit: Unit.ratio,
+              }),
+              line({
+                metric: supply.velocity.usd,
                 name: "USD",
-                title: "Cointime-Adjusted USD Velocity",
-                bottom: [
-                  line({
-                    metric: supply.velocity.usd,
-                    name: "Base",
-                    color: colors.thermo,
-                    unit: Unit.ratio,
-                  }),
-                  line({
-                    metric: adjusted.cointimeAdjTxUsdVelocity,
-                    name: "Cointime-Adjusted",
-                    color: colors.vaulted,
-                    unit: Unit.ratio,
-                  }),
-                ],
-              },
+                color: colors.emerald,
+                unit: Unit.ratio,
+              }),
+              line({
+                metric: adjusted.cointimeAdjTxUsdVelocity,
+                name: "Adj. USD",
+                color: colors.lime,
+                unit: Unit.ratio,
+              }),
             ],
           },
         ],

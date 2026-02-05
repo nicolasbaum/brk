@@ -50,17 +50,19 @@ export function createLegend() {
       }
       legends[order] = div;
 
-      const { label } = createLabeledInput({
+      const { input, label } = createLabeledInput({
         inputId: stringToId(`legend-${series.id}`),
         inputName: stringToId(`selected-${series.id}`),
         inputValue: "value",
         title: "Click to toggle",
         inputChecked: series.active.value,
-        onClick: () => {
+        onClick: (event) => {
+          event.preventDefault();
           series.setActive(!series.active.value);
         },
         type: "checkbox",
       });
+      input.dataset.series = series.key;
 
       const spanMain = window.document.createElement("span");
       spanMain.classList.add("main");
@@ -91,7 +93,7 @@ export function createLegend() {
         anchor.href = series.url;
         anchor.target = "_blank";
         anchor.rel = "noopener noreferrer";
-        anchor.title = "Open the metric data in a new tab";
+        anchor.title = "Click to view data";
         div.append(anchor);
       }
     },

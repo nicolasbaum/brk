@@ -3,9 +3,8 @@ import { chartElement } from "../utils/elements.js";
 import { serdeChartableIndex } from "../utils/serde.js";
 import { Unit } from "../utils/units.js";
 import { createChart } from "../chart/index.js";
-import { colors } from "../utils/colors.js";
+import { colors } from "../chart/colors.js";
 import { webSockets } from "../utils/ws.js";
-import { brk } from "../client.js";
 
 const ONE_BTC_IN_SATS = 100_000_000;
 
@@ -20,7 +19,10 @@ export function setOption(opt) {
   _setOption(opt);
 }
 
-export function init() {
+/**
+ * @param {BrkClient} brk
+ */
+export function init(brk) {
   chartElement.append(createShadow("left"));
   chartElement.append(createShadow("right"));
 
@@ -61,7 +63,7 @@ export function init() {
       type: "Candlestick",
       title: "Price",
       metric: brk.metrics.price.sats.ohlc,
-      colors: /** @type {const} */ ([colors.bi.p1[1], colors.bi.p1[0]]),
+      colors: [colors.red, colors.green],
     };
     result.set(Unit.sats, [satsPrice, ...(optionTop.get(Unit.sats) ?? [])]);
 
@@ -97,16 +99,14 @@ export function init() {
   _setOption = (opt) => {
     headingElement.innerHTML = opt.title;
 
-    // Set blueprints first so storageId is correct before any index change
+    // Update index choices based on option
+    setChoices(computeChoices(opt));
+
     blueprints = chart.setBlueprints({
-      name: opt.title,
       top: buildTopBlueprints(opt.top),
       bottom: opt.bottom,
       onDataLoaded: updatePriceWithLatest,
     });
-
-    // Update index choices (may trigger rebuild if index changes)
-    setChoices(computeChoices(opt));
   };
 
   // Live price update listener
