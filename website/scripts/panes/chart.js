@@ -4,7 +4,11 @@ import { INDEX_FROM_LABEL } from "../utils/serde.js";
 import { Unit } from "../utils/units.js";
 import { createChart } from "../chart/index.js";
 import { colors } from "../utils/colors.js";
+<<<<<<< HEAD
 import { latestPrice, onPrice } from "../utils/price.js";
+=======
+import { webSockets } from "../utils/ws.js";
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 import { brk } from "../client.js";
 
 const ONE_BTC_IN_SATS = 100_000_000;
@@ -21,6 +25,12 @@ export function setOption(opt) {
 }
 
 export function init() {
+<<<<<<< HEAD
+=======
+  chartElement.append(createShadow("left"));
+  chartElement.append(createShadow("right"));
+
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const { headerElement, headingElement } = createHeader();
   chartElement.append(headerElement);
 
@@ -42,6 +52,7 @@ export function init() {
 
     const { ohlc, spot } = brk.series.prices;
 
+<<<<<<< HEAD
     result.set(Unit.usd, [
       /** @type {AnyFetchedSeriesBlueprint} */ ({
         type: "Price",
@@ -62,6 +73,17 @@ export function init() {
       }),
       ...(optionTop.get(Unit.sats) ?? []),
     ]);
+=======
+    // Sats price + option blueprints
+    /** @type {FetchedCandlestickSeriesBlueprint} */
+    const satsPrice = {
+      type: "Candlestick",
+      title: "Price",
+      metric: brk.metrics.price.sats.ohlc,
+      colors: /** @type {const} */ ([colors.bi.p1[1], colors.bi.p1[0]]),
+    };
+    result.set(Unit.sats, [satsPrice, ...(optionTop.get(Unit.sats) ?? [])]);
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
     return result;
   }
@@ -97,10 +119,17 @@ export function init() {
     headingElement.innerHTML = opt.title;
 
     // Set blueprints first so storageId is correct before any index change
+<<<<<<< HEAD
     chart.setBlueprints({
       name: opt.title,
       top: buildTopBlueprints(opt.top()),
       bottom: opt.bottom(),
+=======
+    blueprints = chart.setBlueprints({
+      name: opt.title,
+      top: buildTopBlueprints(opt.top),
+      bottom: opt.bottom,
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       onDataLoaded: updatePriceWithLatest,
     });
 

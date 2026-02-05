@@ -89,7 +89,11 @@ export function capture({ screenshot, chartWidth, parent, legends }) {
   // Bottom legend
   if (hasBottomLegend) {
     drawLegend(
+<<<<<<< HEAD
       legends[1].element,
+=======
+      legends.bottom.element,
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       pad +
         titleOffset +
         topLegendOffset +

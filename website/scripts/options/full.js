@@ -3,7 +3,17 @@ import { createButtonElement, createAnchorElement } from "../utils/dom.js";
 import { pushHistory, resetParams } from "../utils/url.js";
 import { readStored, writeToStorage } from "../utils/storage.js";
 import { stringToId } from "../utils/format.js";
+<<<<<<< HEAD
 import { logUnused } from "./unused.js";
+=======
+import {
+  collect,
+  markUsed,
+  logUnused,
+  extractTreeStructure,
+} from "./unused.js";
+import { localhost } from "../utils/env.js";
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 import { setQr } from "../panes/share.js";
 import { getConstant } from "./constants.js";
 import { colors } from "../utils/colors.js";
@@ -11,6 +21,11 @@ import { Unit } from "../utils/units.js";
 import { brk } from "../client.js";
 
 export function initOptions() {
+<<<<<<< HEAD
+=======
+  collect(brk.metrics);
+
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const LS_SELECTED_KEY = `selected_path`;
 
   const urlPath_ = window.document.location.pathname
@@ -22,6 +37,14 @@ export function initOptions() {
   ).filter((v) => v);
 
   const partialOptions = createPartialOptions();
+<<<<<<< HEAD
+=======
+
+  // Log tree structure for analysis (localhost only)
+  if (localhost) {
+    console.log(extractTreeStructure(partialOptions));
+  }
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
   /** @type {Option[]} */
   const list = [];
@@ -85,6 +108,7 @@ export function initOptions() {
   }
 
   /**
+<<<<<<< HEAD
    * @template T
    * @param {() => T} fn
    * @returns {() => T}
@@ -103,6 +127,8 @@ export function initOptions() {
   }
 
   /**
+=======
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
    * @param {(AnyFetchedSeriesBlueprint | FetchedPriceSeriesBlueprint)[]} [arr]
    */
   function arrayToMap(arr) {
@@ -122,6 +148,7 @@ export function initOptions() {
     for (let i = 0; i < arr.length; i++) {
       const blueprint = arr[i];
 
+<<<<<<< HEAD
       // Check for undefined series
       if (!blueprint.series) {
         throw new Error(`Blueprint has undefined series: ${blueprint.title}`);
@@ -151,6 +178,40 @@ export function initOptions() {
       const unit = regularBlueprint.unit;
       if (!unit) continue;
 
+=======
+      // Check for undefined metric
+      if (!blueprint.metric) {
+        throw new Error(`Blueprint has undefined metric: ${blueprint.title}`);
+      }
+
+      // Check for price pattern blueprint (has dollars/sats sub-metrics)
+      // Use unknown cast for safe property access check
+      const maybePriceMetric =
+        /** @type {{ dollars?: AnyMetricPattern, sats?: AnyMetricPattern }} */ (
+          /** @type {unknown} */ (blueprint.metric)
+        );
+      if (maybePriceMetric.dollars?.by && maybePriceMetric.sats?.by) {
+        const { dollars, sats } = maybePriceMetric;
+        markUsed(dollars);
+        if (!usdArr) map.set(Unit.usd, (usdArr = []));
+        usdArr.push({ ...blueprint, metric: dollars, unit: Unit.usd });
+
+        markUsed(sats);
+        if (!satsArr) map.set(Unit.sats, (satsArr = []));
+        satsArr.push({ ...blueprint, metric: sats, unit: Unit.sats });
+        continue;
+      }
+
+      // After continue, we know this is a regular metric blueprint
+      const regularBlueprint = /** @type {AnyFetchedSeriesBlueprint} */ (
+        blueprint
+      );
+      const metric = regularBlueprint.metric;
+      const unit = regularBlueprint.unit;
+      if (!unit) continue;
+
+      markUsed(metric);
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       let unitArr = map.get(unit);
       if (!unitArr) map.set(unit, (unitArr = []));
       unitArr.push(regularBlueprint);
@@ -163,7 +224,11 @@ export function initOptions() {
         priceSet.add(regularBlueprint.options?.baseValue?.price ?? 0);
       } else if (!type || type === "Line") {
         // Check if manual price line - avoid Object.values() array allocation
+<<<<<<< HEAD
         const by = s.by;
+=======
+        const by = metric.by;
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         for (const k in by) {
           if (by[/** @type {Index} */ (k)]?.path?.includes("constant_")) {
             priceLines.get(unit)?.delete(parseFloat(regularBlueprint.title));
@@ -178,9 +243,16 @@ export function initOptions() {
       const arr = map.get(unit);
       if (!arr) continue;
       for (const baseValue of values) {
+<<<<<<< HEAD
         const s = getConstant(brk.series.constants, baseValue);
         arr.push({
           series: s,
+=======
+        const metric = getConstant(brk.metrics.constants, baseValue);
+        markUsed(metric);
+        arr.push({
+          metric,
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           title: `${baseValue}`,
           color: colors.gray,
           unit,
@@ -332,10 +404,13 @@ export function initOptions() {
           );
         } else {
           const title = option.title || name;
+<<<<<<< HEAD
           const topArr = anyPartial.top;
           const bottomArr = anyPartial.bottom;
           const topFn = lazy(() => arrayToMap(topArr));
           const bottomFn = lazy(() => arrayToMap(bottomArr));
+=======
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           Object.assign(
             option,
             /** @satisfies {ChartOption} */ ({
@@ -371,8 +446,13 @@ export function initOptions() {
     return { nodes, count: totalCount };
   }
 
+<<<<<<< HEAD
   logUnused(brk.series, partialOptions);
   const { nodes: processedTree } = processPartialTree(partialOptions);
+=======
+  const { nodes: processedTree } = processPartialTree(partialOptions);
+  logUnused();
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
   /**
    * @param {ProcessedNode[]} nodes

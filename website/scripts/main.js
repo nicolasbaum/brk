@@ -108,11 +108,17 @@ function initFrameSelectors() {
 }
 initFrameSelectors();
 
+<<<<<<< HEAD
 initPrice(brk);
 
 onPrice((price) => {
   console.log("close:", price);
   window.document.title = `${price.toLocaleString("en-us")} | ${window.location.host}`;
+=======
+webSockets.kraken1dCandle.onLatest((latest) => {
+  console.log("close:", latest.close);
+  window.document.title = `${latest.close.toLocaleString("en-us")} | ${window.location.host}`;
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 });
 
 const options = initOptions();

@@ -25,12 +25,20 @@ export function getConstant(constants, num) {
 
 /**
  * Create a price line series (horizontal reference line)
+<<<<<<< HEAD
  * @param {{ number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'series'>} args
+=======
+ * @param {{ number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'metric'>} args
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  */
 export function priceLine(args) {
   return line({
     ...args,
+<<<<<<< HEAD
     series: getConstant(brk.series.constants, args.number || 0),
+=======
+    metric: getConstant(brk.metrics.constants, args.number || 0),
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     name: args.name || `${args.number ?? 0}`,
     color: args.color ?? colors.gray,
     options: {

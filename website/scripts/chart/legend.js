@@ -137,7 +137,11 @@ export function createSeriesLegend() {
         anchor.href = series.url;
         anchor.target = "_blank";
         anchor.rel = "noopener noreferrer";
+<<<<<<< HEAD
         anchor.title = "Open the series data in a new tab";
+=======
+        anchor.title = "Open the metric data in a new tab";
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         div.append(anchor);
       }
     },

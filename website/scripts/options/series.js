@@ -84,6 +84,7 @@ export function price({
 
 /**
  * Create percentile series (max/min/median/pct75/pct25/pct90/pct10) from any stats pattern
+<<<<<<< HEAD
  * @param {Object} args
  * @param {DistributionStats} args.pattern
  * @param {Unit} args.unit
@@ -134,6 +135,64 @@ function percentileSeries({ pattern, unit, title = "" }) {
       name: `${title} Min`.trim(),
       color: stat.min,
       unit,
+=======
+ * @param {StatsPattern<any> | BaseStatsPattern<any> | FullStatsPattern<any> | AnyStatsPattern} pattern
+ * @param {Unit} unit
+ * @param {string} title
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+function percentileSeries(pattern, unit, title) {
+  const { stat } = colors;
+  return [
+    dots({
+      metric: pattern.max,
+      name: `${title} max`.trim(),
+      color: stat.max,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.min,
+      name: `${title} min`.trim(),
+      color: stat.min,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.median,
+      name: `${title} median`.trim(),
+      color: stat.median,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct75,
+      name: `${title} pct75`.trim(),
+      color: stat.pct75,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct25,
+      name: `${title} pct25`.trim(),
+      color: stat.pct25,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct90,
+      name: `${title} pct90`.trim(),
+      color: stat.pct90,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct10,
+      name: `${title} pct10`.trim(),
+      color: stat.pct10,
+      unit,
+      defaultActive: false,
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     }),
   ];
 }
@@ -190,6 +249,7 @@ export function dotted(args) {
 /**
  * @param {Omit<Parameters<typeof line>[0], 'style'>} args
  */
+<<<<<<< HEAD
 export function dashed(args) {
   const _args = /** @type {Parameters<typeof line>[0]} */ (args);
   _args.style = 2;
@@ -199,6 +259,8 @@ export function dashed(args) {
 /**
  * @param {Omit<Parameters<typeof line>[0], 'style'>} args
  */
+=======
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 export function sparseDotted(args) {
   const _args = /** @type {Parameters<typeof line>[0]} */ (args);
   _args.style = 4;
@@ -344,12 +406,65 @@ export function dotsBaseline({
   defaultActive,
   unit,
   base,
+  style,
   options,
 }) {
   const isTuple = Array.isArray(color);
   return {
     type: /** @type {const} */ ("DotsBaseline"),
     series,
+    title: name,
+    key,
+    color: isTuple ? undefined : color,
+    colors: isTuple ? color : undefined,
+    unit,
+    defaultActive,
+    options: {
+      baseValue: {
+        price: base,
+      },
+      lineStyle: style,
+      ...options,
+    },
+  };
+}
+
+/**
+ * @param {Omit<Parameters<typeof baseline>[0], 'style'>} args
+ */
+export function dottedBaseline(args) {
+  const _args = /** @type {Parameters<typeof baseline>[0]} */ (args);
+  _args.style = 1;
+  return baseline(_args);
+}
+
+/**
+ * Baseline series rendered as dots (points only, no line)
+ * @param {Object} args
+ * @param {AnyMetricPattern} args.metric
+ * @param {string} args.name
+ * @param {Unit} args.unit
+ * @param {string} [args.key]
+ * @param {Color | [Color, Color]} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @param {number | undefined} [args.base]
+ * @param {BaselineSeriesPartialOptions} [args.options]
+ * @returns {FetchedDotsBaselineSeriesBlueprint}
+ */
+export function dotsBaseline({
+  metric,
+  name,
+  key,
+  color,
+  defaultActive,
+  unit,
+  base,
+  options,
+}) {
+  const isTuple = Array.isArray(color);
+  return {
+    type: /** @type {const} */ ("DotsBaseline"),
+    metric,
     title: name,
     key,
     color: isTuple ? undefined : color,
@@ -402,10 +517,16 @@ export function histogram({
 }
 
 /**
+<<<<<<< HEAD
  * Create series from an AverageHeightMaxMedianMinP10P25P75P90Pattern (height + rolling stats)
  * @param {Object} args
  * @param {{ height: AnySeriesPattern } & WindowedStats<AnySeriesPattern>} args.pattern - Pattern with .height and rolling stats
  * @param {string} args.window - Rolling window key (e.g., '_24h', '_1w', '_1m', '_1y')
+=======
+ * Create series from a BaseStatsPattern (base + avg + percentiles, NO sum)
+ * @param {Object} args
+ * @param {BaseStatsPattern<any>} args.pattern
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @param {Unit} args.unit
  * @param {string} [args.title]
  * @param {Color} [args.baseColor]
@@ -418,6 +539,7 @@ export function fromBaseStatsPattern({
   unit,
   title = "",
   baseColor,
+<<<<<<< HEAD
 }) {
   const stats = statsAtWindow(pattern, window);
   return [
@@ -654,10 +776,31 @@ export function averagesArray({ windows, title = (s) => s, metric, unit }) {
         line({ series: windows[w.key], name: "Average", color: w.color, unit }),
       ],
     })),
+=======
+  avgActive = true,
+}) {
+  const { stat } = colors;
+  return [
+    dots({
+      metric: pattern.base,
+      name: title || "base",
+      color: baseColor,
+      unit,
+    }),
+    dots({
+      metric: pattern.average,
+      name: `${title} avg`.trim(),
+      color: stat.avg,
+      unit,
+      defaultActive: avgActive,
+    }),
+    ...percentileSeries(pattern, unit, title),
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   ];
 }
 
 /**
+<<<<<<< HEAD
  * Create a Distribution folder tree with stats at each rolling window (24h/1w/1m/1y)
  * @param {Object} args
  * @param {WindowedStats<AnySeriesPattern>} args.pattern - Pattern with pct10/pct25/... and average/median/... at each rolling window
@@ -740,6 +883,46 @@ export const distributionBtcSatsUsd = (slot) => [
  * @param {Color} [args.color]
  * @returns {AnyFetchedSeriesBlueprint[]}
  */
+=======
+ * Create series from any pattern with avg + percentiles (works with StatsPattern, SumStatsPattern, etc.)
+ * @param {Object} args
+ * @param {StatsPattern<any> | BaseStatsPattern<any> | FullStatsPattern<any> | AnyStatsPattern} args.pattern
+ * @param {Unit} args.unit
+ * @param {string} [args.title]
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+export function fromStatsPattern({ pattern, unit, title = "" }) {
+  return [
+    {
+      type: "Dots",
+      metric: pattern.average,
+      title: `${title} avg`.trim(),
+      unit,
+    },
+    ...percentileSeries(pattern, unit, title),
+  ];
+}
+
+/**
+ * Create distribution series for btc/sats/usd from a value pattern with stats (average + percentiles)
+ * @param {FullValuePattern | SumValuePattern} source
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+export const distributionBtcSatsUsd = (source) => [
+  ...fromStatsPattern({ pattern: source.bitcoin, unit: Unit.btc }),
+  ...fromStatsPattern({ pattern: source.sats, unit: Unit.sats }),
+  ...fromStatsPattern({ pattern: source.dollars, unit: Unit.usd }),
+];
+
+/**
+ * Create series from a SupplyPattern (sats/bitcoin/dollars, no sum/cumulative)
+ * @param {Object} args
+ * @param {SupplyPattern} args.pattern
+ * @param {string} args.title
+ * @param {Color} [args.color]
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 export function fromSupplyPattern({ pattern, title, color }) {
   return [
     {
@@ -764,6 +947,7 @@ export function fromSupplyPattern({ pattern, title, color }) {
 }
 
 // ============================================================================
+<<<<<<< HEAD
 // Percent + Ratio helpers
 // ============================================================================
 
@@ -953,23 +1137,130 @@ export function simpleDeltaTree({ delta, title = (s) => s, metric, unit }) {
 }
 
 // ============================================================================
+=======
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 // Chart-generating helpers (return PartialOptionsTree for folder structures)
 // ============================================================================
 // These split patterns into separate Sum/Distribution/Cumulative charts
 
 /**
+<<<<<<< HEAD
  * Split flat per-block pattern into charts (Averages/Sums/Distribution/Cumulative)
  * Pattern has: .height, .cumulative, .sum (windowed), .average/.pct10/... (windowed, flat)
  * @param {Object} args
  * @param {FullPerBlockPattern} args.pattern
  * @param {(metric: string) => string} [args.title]
  * @param {string} args.metric
+=======
+ * Create distribution series (avg + percentiles)
+ * @param {StatsPattern<any> | BaseStatsPattern<any> | FullStatsPattern<any> | AnyStatsPattern} pattern
+ * @param {Unit} unit
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+function distributionSeries(pattern, unit) {
+  const { stat } = colors;
+  return [
+    dots({ metric: pattern.average, name: "avg", color: stat.avg, unit }),
+    dots({
+      metric: pattern.median,
+      name: "median",
+      color: stat.median,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.max,
+      name: "max",
+      color: stat.max,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.min,
+      name: "min",
+      color: stat.min,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct75,
+      name: "pct75",
+      color: stat.pct75,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct25,
+      name: "pct25",
+      color: stat.pct25,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct90,
+      name: "pct90",
+      color: stat.pct90,
+      unit,
+      defaultActive: false,
+    }),
+    dots({
+      metric: pattern.pct10,
+      name: "pct10",
+      color: stat.pct10,
+      unit,
+      defaultActive: false,
+    }),
+  ];
+}
+
+/**
+ * Create btc/sats/usd series from metrics
+ * @param {Object} args
+ * @param {{ bitcoin: AnyMetricPattern, sats: AnyMetricPattern, dollars: AnyMetricPattern }} args.metrics
+ * @param {string} args.name
+ * @param {Color} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @returns {AnyFetchedSeriesBlueprint[]}
+ */
+function btcSatsUsdSeries({ metrics, name, color, defaultActive }) {
+  return [
+    {
+      metric: metrics.bitcoin,
+      title: name,
+      color,
+      unit: Unit.btc,
+      defaultActive,
+    },
+    {
+      metric: metrics.sats,
+      title: name,
+      color,
+      unit: Unit.sats,
+      defaultActive,
+    },
+    {
+      metric: metrics.dollars,
+      title: name,
+      color,
+      unit: Unit.usd,
+      defaultActive,
+    },
+  ];
+}
+
+/**
+ * Split pattern with base + sum + distribution + cumulative into 3 charts
+ * @param {Object} args
+ * @param {FullStatsPattern<any>} args.pattern
+ * @param {string} args.title
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @param {Unit} args.unit
  * @param {string} [args.distributionSuffix]
  * @returns {PartialOptionsTree}
  */
 export function chartsFromFull({
   pattern,
+<<<<<<< HEAD
   title = (s) => s,
   metric,
   unit,
@@ -988,15 +1279,50 @@ export function chartsFromFull({
       unit,
     }),
     distributionWindowsTree({ pattern, title, metric: distMetric, unit }),
+=======
+  title,
+  unit,
+  distributionSuffix = "",
+}) {
+  const distTitle = distributionSuffix
+    ? `${title} ${distributionSuffix} Distribution`
+    : `${title} Distribution`;
+  return [
+    {
+      name: "Sum",
+      title,
+      bottom: [
+        { metric: pattern.base, title: "sum", unit },
+        { metric: pattern.sum, title: "sum", unit },
+      ],
+    },
+    {
+      name: "Distribution",
+      title: distTitle,
+      bottom: distributionSeries(pattern, unit),
+    },
+    {
+      name: "Cumulative",
+      title: `${title} (Total)`,
+      bottom: [{ metric: pattern.cumulative, title: "all-time", unit }],
+    },
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   ];
 }
 
 /**
+<<<<<<< HEAD
  * Split pattern into 4 charts with "per Block" in distribution title
  * @param {Object} args
  * @param {FullPerBlockPattern} args.pattern
  * @param {(metric: string) => string} [args.title]
  * @param {string} args.metric
+=======
+ * Split pattern into 3 charts with "per Block" in distribution title
+ * @param {Object} args
+ * @param {FullStatsPattern<any>} args.pattern
+ * @param {string} args.title
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @param {Unit} args.unit
  * @returns {PartialOptionsTree}
  */
@@ -1006,13 +1332,19 @@ export const chartsFromFullPerBlock = (args) =>
 /**
  * Split pattern with sum + distribution + cumulative into 3 charts (no base)
  * @param {Object} args
+<<<<<<< HEAD
  * @param {AggregatedPattern} args.pattern
  * @param {(metric: string) => string} [args.title]
  * @param {string} args.metric
+=======
+ * @param {AnyStatsPattern} args.pattern
+ * @param {string} args.title
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @param {Unit} args.unit
  * @param {string} [args.distributionSuffix]
  * @returns {PartialOptionsTree}
  */
+<<<<<<< HEAD
 export function chartsFromAggregated({
   pattern,
   title = (s) => s,
@@ -1038,12 +1370,41 @@ export function chartsFromAggregated({
       metric: distMetric,
       unit,
     }),
+=======
+export function chartsFromSum({
+  pattern,
+  title,
+  unit,
+  distributionSuffix = "",
+}) {
+  const { stat } = colors;
+  const distTitle = distributionSuffix
+    ? `${title} ${distributionSuffix} Distribution`
+    : `${title} Distribution`;
+  return [
+    {
+      name: "Sum",
+      title,
+      bottom: [{ metric: pattern.sum, title: "sum", color: stat.sum, unit }],
+    },
+    {
+      name: "Distribution",
+      title: distTitle,
+      bottom: distributionSeries(pattern, unit),
+    },
+    {
+      name: "Cumulative",
+      title: `${title} (Total)`,
+      bottom: [{ metric: pattern.cumulative, title: "all-time", unit }],
+    },
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   ];
 }
 
 /**
  * Split pattern into 3 charts with "per Block" in distribution title (no base)
  * @param {Object} args
+<<<<<<< HEAD
  * @param {AggregatedPattern} args.pattern
  * @param {(metric: string) => string} [args.title]
  * @param {string} args.metric
@@ -1083,10 +1444,26 @@ export function chartsFromBlockAnd6b({ pattern, title = (s) => s, metric, unit }
  * @param {CountPattern<number>} args.pattern
  * @param {(metric: string) => string} [args.title]
  * @param {string} args.metric
+=======
+ * @param {AnyStatsPattern} args.pattern
+ * @param {string} args.title
+ * @param {Unit} args.unit
+ * @returns {PartialOptionsTree}
+ */
+export const chartsFromSumPerBlock = (args) =>
+  chartsFromSum({ ...args, distributionSuffix: "per Block" });
+
+/**
+ * Split pattern with sum + cumulative into 2 charts
+ * @param {Object} args
+ * @param {CountPattern<any>} args.pattern
+ * @param {string} args.title
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
  * @param {Unit} args.unit
  * @param {Color} [args.color]
  * @returns {PartialOptionsTree}
  */
+<<<<<<< HEAD
 export function chartsFromCount({ pattern, title = (s) => s, metric, unit, color }) {
   return sumsAndAveragesCumulative({
     sum: pattern.sum,
@@ -1129,11 +1506,25 @@ export function chartsFromCountEntries({ entries, title = (s) => s, metric, unit
       bottom: items.map((e) =>
         line({ series: e.cumulative, name: e.name, color: e.color, unit }),
       ),
+=======
+export function chartsFromCount({ pattern, title, unit, color }) {
+  return [
+    {
+      name: "Sum",
+      title,
+      bottom: [{ metric: pattern.sum, title: "sum", color, unit }],
+    },
+    {
+      name: "Cumulative",
+      title: `${title} (Total)`,
+      bottom: [{ metric: pattern.cumulative, title: "all-time", color, unit }],
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     },
   ];
 }
 
 /**
+<<<<<<< HEAD
  * Windowed averages + sums + cumulative for multiple named series (e.g. UTXO flow)
  * @param {Object} args
  * @param {Array<{ name: string, color: Color, average: { _24h: AnySeriesPattern, _1w: AnySeriesPattern, _1m: AnySeriesPattern, _1y: AnySeriesPattern }, sum: { _24h: AnySeriesPattern, _1w: AnySeriesPattern, _1m: AnySeriesPattern, _1y: AnySeriesPattern }, cumulative: AnySeriesPattern }>} args.entries
@@ -1157,6 +1548,97 @@ export function multiSeriesTree({ entries, title = (s) => s, metric, unit }) {
       bottom: entries.map((e) =>
         line({ series: e.cumulative, name: e.name, color: e.color, unit }),
       ),
+=======
+ * Split value pattern (btc/sats/usd with sum + cumulative) into 2 charts
+ * @param {Object} args
+ * @param {ValuePattern} args.pattern
+ * @param {string} args.title
+ * @param {Color} [args.color]
+ * @returns {PartialOptionsTree}
+ */
+export function chartsFromValue({ pattern, title, color }) {
+  return [
+    {
+      name: "Sum",
+      title,
+      bottom: btcSatsUsdSeries({
+        metrics: {
+          bitcoin: pattern.bitcoin.sum,
+          sats: pattern.sats.sum,
+          dollars: pattern.dollars.sum,
+        },
+        name: "sum",
+        color,
+      }),
+    },
+    {
+      name: "Cumulative",
+      title: `${title} (Total)`,
+      bottom: btcSatsUsdSeries({
+        metrics: {
+          bitcoin: pattern.bitcoin.cumulative,
+          sats: pattern.sats.cumulative,
+          dollars: pattern.dollars.cumulative,
+        },
+        name: "all-time",
+        color,
+      }),
+    },
+  ];
+}
+
+/**
+ * Split btc/sats/usd pattern with full stats into 3 charts
+ * @param {Object} args
+ * @param {CoinbasePattern} args.pattern
+ * @param {string} args.title
+ * @returns {PartialOptionsTree}
+ */
+export function chartsFromValueFull({ pattern, title }) {
+  return [
+    {
+      name: "Sum",
+      title,
+      bottom: [
+        ...btcSatsUsdSeries({
+          metrics: {
+            bitcoin: pattern.bitcoin.base,
+            sats: pattern.sats.base,
+            dollars: pattern.dollars.base,
+          },
+          name: "sum",
+        }),
+        ...btcSatsUsdSeries({
+          metrics: {
+            bitcoin: pattern.bitcoin.sum,
+            sats: pattern.sats.sum,
+            dollars: pattern.dollars.sum,
+          },
+          name: "sum",
+        }),
+      ],
+    },
+    {
+      name: "Distribution",
+      title: `${title} Distribution`,
+      bottom: [
+        ...distributionSeries(pattern.bitcoin, Unit.btc),
+        ...distributionSeries(pattern.sats, Unit.sats),
+        ...distributionSeries(pattern.dollars, Unit.usd),
+      ],
+    },
+    {
+      name: "Cumulative",
+      title: `${title} (Total)`,
+      bottom: btcSatsUsdSeries({
+        metrics: {
+          bitcoin: pattern.bitcoin.cumulative,
+          sats: pattern.sats.cumulative,
+          dollars: pattern.dollars.cumulative,
+        },
+        name: "all-time",
+      }),
+>>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     },
   ];
 }
