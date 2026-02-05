@@ -11,6 +11,7 @@ export const Unit = /** @type {const} */ ({
 
   // Ratios & percentages
   percentage: { id: "percentage", name: "Percentage" },
+  cagr: { id: "cagr", name: "CAGR (%/year)" },
   ratio: { id: "ratio", name: "Ratio" },
   index: { id: "index", name: "Index" },
   sd: { id: "sd", name: "Std Dev" },
@@ -20,6 +21,7 @@ export const Unit = /** @type {const} */ ({
   pctOwn: { id: "pct-own", name: "% of Own Supply" },
   pctMcap: { id: "pct-mcap", name: "% of Market Cap" },
   pctRcap: { id: "pct-rcap", name: "% of Realized Cap" },
+  pctOwnRcap: { id: "pct-own-rcap", name: "% of Own Realized Cap" },
   pctOwnMcap: { id: "pct-own-mcap", name: "% of Own Market Cap" },
   pctOwnPnl: { id: "pct-own-pnl", name: "% of Own P&L" },
 

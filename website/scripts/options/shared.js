@@ -3,25 +3,85 @@
 import { Unit } from "../utils/units.js";
 import { line, baseline, price } from "./series.js";
 import { priceLine, priceLines } from "./constants.js";
+import { colors } from "../utils/colors.js";
+
+// ============================================================================
+// Grouped Cohort Helpers
+// ============================================================================
+
+/**
+ * Map cohorts to series (without "all" cohort)
+ * Use for charts where "all" doesn't have required properties
+ * @template T
+ * @template R
+ * @param {readonly T[]} list
+ * @param {(item: T) => R} fn
+ * @returns {R[]}
+ */
+export function mapCohorts(list, fn) {
+  return list.map(fn);
+}
+
+/**
+ * FlatMap cohorts to series (without "all" cohort)
+ * Use for charts where "all" doesn't have required properties
+ * @template T
+ * @template R
+ * @param {readonly T[]} list
+ * @param {(item: T) => R[]} fn
+ * @returns {R[]}
+ */
+export function flatMapCohorts(list, fn) {
+  return list.flatMap(fn);
+}
+
+/**
+ * Map cohorts to series, with "all" cohort added as defaultActive: false
+ * @template T
+ * @template A
+ * @template R
+ * @param {readonly T[]} list
+ * @param {A} all
+ * @param {(item: T | A) => R} fn
+ * @returns {R[]}
+ */
+export function mapCohortsWithAll(list, all, fn) {
+  return [...list.map(fn), { ...fn({ ...all, name: "All" }), defaultActive: false }];
+}
+
+/**
+ * FlatMap cohorts to series, with "all" cohort added as defaultActive: false
+ * @template T
+ * @template A
+ * @template R
+ * @param {readonly T[]} list
+ * @param {A} all
+ * @param {(item: T | A) => R[]} fn
+ * @returns {R[]}
+ */
+export function flatMapCohortsWithAll(list, all, fn) {
+  return [...list.flatMap(fn), ...fn({ ...all, name: "All" }).map((s) => ({ ...s, defaultActive: false }))];
+}
 
 /**
  * Create a title formatter for chart titles
  * @param {string} [cohortTitle]
  * @returns {(metric: string) => string}
  */
-export const formatCohortTitle = (cohortTitle) =>
-  (metric) => cohortTitle ? `${metric}: ${cohortTitle}` : metric;
+export const formatCohortTitle = (cohortTitle) => (metric) =>
+  cohortTitle ? `${metric}: ${cohortTitle}` : metric;
 
 /**
  * Create sats/btc/usd line series from a pattern with .sats/.bitcoin/.dollars
- * @param {{ sats: AnyMetricPattern, bitcoin: AnyMetricPattern, dollars: AnyMetricPattern }} pattern
- * @param {string} name
- * @param {Color} [color]
- * @param {{ defaultActive?: boolean }} [options]
+ * @param {Object} args
+ * @param {AnyValuePattern} args.pattern
+ * @param {string} args.name
+ * @param {Color} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @param {number} [args.style]
  * @returns {FetchedLineSeriesBlueprint[]}
  */
-export function satsBtcUsd(pattern, name, color, options) {
-  const { defaultActive } = options || {};
+export function satsBtcUsd({ pattern, name, color, defaultActive, style }) {
   return [
     line({
       metric: pattern.bitcoin,
@@ -29,9 +89,53 @@ export function satsBtcUsd(pattern, name, color, options) {
       color,
       unit: Unit.btc,
       defaultActive,
+      style,
     }),
-    line({ metric: pattern.sats, name, color, unit: Unit.sats, defaultActive }),
     line({
+      metric: pattern.sats,
+      name,
+      color,
+      unit: Unit.sats,
+      defaultActive,
+      style,
+    }),
+    line({
+      metric: pattern.dollars,
+      name,
+      color,
+      unit: Unit.usd,
+      defaultActive,
+      style,
+    }),
+  ];
+}
+
+/**
+ * Create sats/btc/usd baseline series from a value pattern
+ * @param {Object} args
+ * @param {{ bitcoin: AnyMetricPattern, sats: AnyMetricPattern, dollars: AnyMetricPattern }} args.pattern
+ * @param {string} args.name
+ * @param {Color} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @returns {FetchedBaselineSeriesBlueprint[]}
+ */
+export function satsBtcUsdBaseline({ pattern, name, color, defaultActive }) {
+  return [
+    baseline({
+      metric: pattern.bitcoin,
+      name,
+      color,
+      unit: Unit.btc,
+      defaultActive,
+    }),
+    baseline({
+      metric: pattern.sats,
+      name,
+      color,
+      unit: Unit.sats,
+      defaultActive,
+    }),
+    baseline({
       metric: pattern.dollars,
       name,
       color,
@@ -42,40 +146,122 @@ export function satsBtcUsd(pattern, name, color, options) {
 }
 
 /**
- * Build percentile USD mappings from a ratio pattern
- * @param {Colors} colors
- * @param {ActivePriceRatioPattern} ratio
+ * Create sats/btc/usd series from any value pattern using sum or cumulative key
+ * @param {Object} args
+ * @param {AnyValuePatternType} args.source
+ * @param {'sum' | 'cumulative'} args.key
+ * @param {string} args.name
+ * @param {Color} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @returns {FetchedLineSeriesBlueprint[]}
  */
-export function percentileUsdMap(colors, ratio) {
+export function satsBtcUsdFrom({ source, key, name, color, defaultActive }) {
+  return satsBtcUsd({
+    pattern: {
+      bitcoin: source.bitcoin[key],
+      sats: source.sats[key],
+      dollars: source.dollars[key],
+    },
+    name,
+    color,
+    defaultActive,
+  });
+}
+
+/**
+ * Create sats/btc/usd series from a full value pattern using base or average key
+ * @param {Object} args
+ * @param {FullValuePattern} args.source
+ * @param {'base' | 'average'} args.key
+ * @param {string} args.name
+ * @param {Color} [args.color]
+ * @param {boolean} [args.defaultActive]
+ * @returns {FetchedLineSeriesBlueprint[]}
+ */
+export function satsBtcUsdFromFull({
+  source,
+  key,
+  name,
+  color,
+  defaultActive,
+}) {
+  return satsBtcUsd({
+    pattern: {
+      bitcoin: source.bitcoin[key],
+      sats: source.sats[key],
+      dollars: source.dollars[key],
+    },
+    name,
+    color,
+    defaultActive,
+  });
+}
+
+/**
+ * Create coinbase/subsidy/fee series from separate sources
+ * @param {Object} args
+ * @param {AnyValuePatternType} args.coinbase
+ * @param {AnyValuePatternType} args.subsidy
+ * @param {AnyValuePatternType} args.fee
+ * @param {'sum' | 'cumulative'} args.key
+ * @returns {FetchedLineSeriesBlueprint[]}
+ */
+export function revenueBtcSatsUsd({ coinbase, subsidy, fee, key }) {
+  return [
+    ...satsBtcUsdFrom({
+      source: coinbase,
+      key,
+      name: "Coinbase",
+      color: colors.mining.coinbase,
+    }),
+    ...satsBtcUsdFrom({
+      source: subsidy,
+      key,
+      name: "Subsidy",
+      color: colors.mining.subsidy,
+    }),
+    ...satsBtcUsdFrom({
+      source: fee,
+      key,
+      name: "Fees",
+      color: colors.mining.fee,
+    }),
+  ];
+}
+
+/**
+ * Build percentile USD mappings from a ratio pattern
+ * @param {AnyRatioPattern} ratio
+ */
+export function percentileUsdMap(ratio) {
   return /** @type {const} */ ([
-    { name: "pct95", prop: ratio.ratioPct95Usd, color: colors.fuchsia },
-    { name: "pct5", prop: ratio.ratioPct5Usd, color: colors.cyan },
-    { name: "pct98", prop: ratio.ratioPct98Usd, color: colors.pink },
-    { name: "pct2", prop: ratio.ratioPct2Usd, color: colors.sky },
-    { name: "pct99", prop: ratio.ratioPct99Usd, color: colors.rose },
-    { name: "pct1", prop: ratio.ratioPct1Usd, color: colors.blue },
+    { name: "pct95", prop: ratio.ratioPct95Usd, color: colors.ratioPct._95 },
+    { name: "pct5", prop: ratio.ratioPct5Usd, color: colors.ratioPct._5 },
+    { name: "pct98", prop: ratio.ratioPct98Usd, color: colors.ratioPct._98 },
+    { name: "pct2", prop: ratio.ratioPct2Usd, color: colors.ratioPct._2 },
+    { name: "pct99", prop: ratio.ratioPct99Usd, color: colors.ratioPct._99 },
+    { name: "pct1", prop: ratio.ratioPct1Usd, color: colors.ratioPct._1 },
   ]);
 }
 
 /**
  * Build percentile ratio mappings from a ratio pattern
- * @param {Colors} colors
- * @param {ActivePriceRatioPattern} ratio
+ * @param {AnyRatioPattern} ratio
  */
-export function percentileMap(colors, ratio) {
+export function percentileMap(ratio) {
   return /** @type {const} */ ([
-    { name: "pct95", prop: ratio.ratioPct95, color: colors.fuchsia },
-    { name: "pct5", prop: ratio.ratioPct5, color: colors.cyan },
-    { name: "pct98", prop: ratio.ratioPct98, color: colors.pink },
-    { name: "pct2", prop: ratio.ratioPct2, color: colors.sky },
-    { name: "pct99", prop: ratio.ratioPct99, color: colors.rose },
-    { name: "pct1", prop: ratio.ratioPct1, color: colors.blue },
+    { name: "pct95", prop: ratio.ratioPct95, color: colors.ratioPct._95 },
+    { name: "pct5", prop: ratio.ratioPct5, color: colors.ratioPct._5 },
+    { name: "pct98", prop: ratio.ratioPct98, color: colors.ratioPct._98 },
+    { name: "pct2", prop: ratio.ratioPct2, color: colors.ratioPct._2 },
+    { name: "pct99", prop: ratio.ratioPct99, color: colors.ratioPct._99 },
+    { name: "pct1", prop: ratio.ratioPct1, color: colors.ratioPct._1 },
   ]);
 }
 
 /**
  * Build SD patterns from a ratio pattern
- * @param {ActivePriceRatioPattern} ratio
+ * @param {AnyRatioPattern} ratio
  */
 export function sdPatterns(ratio) {
   return /** @type {const} */ ([
@@ -88,86 +274,80 @@ export function sdPatterns(ratio) {
 
 /**
  * Build SD band mappings from an SD pattern
- * @param {Colors} colors
  * @param {Ratio1ySdPattern} sd
  */
-export function sdBandsUsd(colors, sd) {
+export function sdBandsUsd(sd) {
   return /** @type {const} */ ([
-    { name: "0σ", prop: sd._0sdUsd, color: colors.lime },
-    { name: "+0.5σ", prop: sd.p05sdUsd, color: colors.yellow },
-    { name: "−0.5σ", prop: sd.m05sdUsd, color: colors.teal },
-    { name: "+1σ", prop: sd.p1sdUsd, color: colors.amber },
-    { name: "−1σ", prop: sd.m1sdUsd, color: colors.cyan },
-    { name: "+1.5σ", prop: sd.p15sdUsd, color: colors.orange },
-    { name: "−1.5σ", prop: sd.m15sdUsd, color: colors.sky },
-    { name: "+2σ", prop: sd.p2sdUsd, color: colors.red },
-    { name: "−2σ", prop: sd.m2sdUsd, color: colors.blue },
-    { name: "+2.5σ", prop: sd.p25sdUsd, color: colors.rose },
-    { name: "−2.5σ", prop: sd.m25sdUsd, color: colors.indigo },
-    { name: "+3σ", prop: sd.p3sdUsd, color: colors.pink },
-    { name: "−3σ", prop: sd.m3sdUsd, color: colors.violet },
+    { name: "0σ", prop: sd._0sdUsd, color: colors.sd._0 },
+    { name: "+0.5σ", prop: sd.p05sdUsd, color: colors.sd.p05 },
+    { name: "−0.5σ", prop: sd.m05sdUsd, color: colors.sd.m05 },
+    { name: "+1σ", prop: sd.p1sdUsd, color: colors.sd.p1 },
+    { name: "−1σ", prop: sd.m1sdUsd, color: colors.sd.m1 },
+    { name: "+1.5σ", prop: sd.p15sdUsd, color: colors.sd.p15 },
+    { name: "−1.5σ", prop: sd.m15sdUsd, color: colors.sd.m15 },
+    { name: "+2σ", prop: sd.p2sdUsd, color: colors.sd.p2 },
+    { name: "−2σ", prop: sd.m2sdUsd, color: colors.sd.m2 },
+    { name: "+2.5σ", prop: sd.p25sdUsd, color: colors.sd.p25 },
+    { name: "−2.5σ", prop: sd.m25sdUsd, color: colors.sd.m25 },
+    { name: "+3σ", prop: sd.p3sdUsd, color: colors.sd.p3 },
+    { name: "−3σ", prop: sd.m3sdUsd, color: colors.sd.m3 },
   ]);
 }
 
 /**
  * Build SD band mappings (ratio) from an SD pattern
- * @param {Colors} colors
  * @param {Ratio1ySdPattern} sd
  */
-export function sdBandsRatio(colors, sd) {
+export function sdBandsRatio(sd) {
   return /** @type {const} */ ([
-    { name: "0σ", prop: sd.sma, color: colors.lime },
-    { name: "+0.5σ", prop: sd.p05sd, color: colors.yellow },
-    { name: "−0.5σ", prop: sd.m05sd, color: colors.teal },
-    { name: "+1σ", prop: sd.p1sd, color: colors.amber },
-    { name: "−1σ", prop: sd.m1sd, color: colors.cyan },
-    { name: "+1.5σ", prop: sd.p15sd, color: colors.orange },
-    { name: "−1.5σ", prop: sd.m15sd, color: colors.sky },
-    { name: "+2σ", prop: sd.p2sd, color: colors.red },
-    { name: "−2σ", prop: sd.m2sd, color: colors.blue },
-    { name: "+2.5σ", prop: sd.p25sd, color: colors.rose },
-    { name: "−2.5σ", prop: sd.m25sd, color: colors.indigo },
-    { name: "+3σ", prop: sd.p3sd, color: colors.pink },
-    { name: "−3σ", prop: sd.m3sd, color: colors.violet },
+    { name: "0σ", prop: sd.sma, color: colors.sd._0 },
+    { name: "+0.5σ", prop: sd.p05sd, color: colors.sd.p05 },
+    { name: "−0.5σ", prop: sd.m05sd, color: colors.sd.m05 },
+    { name: "+1σ", prop: sd.p1sd, color: colors.sd.p1 },
+    { name: "−1σ", prop: sd.m1sd, color: colors.sd.m1 },
+    { name: "+1.5σ", prop: sd.p15sd, color: colors.sd.p15 },
+    { name: "−1.5σ", prop: sd.m15sd, color: colors.sd.m15 },
+    { name: "+2σ", prop: sd.p2sd, color: colors.sd.p2 },
+    { name: "−2σ", prop: sd.m2sd, color: colors.sd.m2 },
+    { name: "+2.5σ", prop: sd.p25sd, color: colors.sd.p25 },
+    { name: "−2.5σ", prop: sd.m25sd, color: colors.sd.m25 },
+    { name: "+3σ", prop: sd.p3sd, color: colors.sd.p3 },
+    { name: "−3σ", prop: sd.m3sd, color: colors.sd.m3 },
   ]);
 }
 
 /**
  * Build ratio SMA series from a ratio pattern
- * @param {Colors} colors
- * @param {ActivePriceRatioPattern} ratio
+ * @param {AnyRatioPattern} ratio
  */
-export function ratioSmas(colors, ratio) {
+export function ratioSmas(ratio) {
   return /** @type {const} */ ([
-    { name: "1w SMA", metric: ratio.ratio1wSma, color: colors.lime },
-    { name: "1m SMA", metric: ratio.ratio1mSma, color: colors.teal },
-    { name: "1y SMA", metric: ratio.ratio1ySd.sma, color: colors.sky },
-    { name: "2y SMA", metric: ratio.ratio2ySd.sma, color: colors.indigo },
-    { name: "4y SMA", metric: ratio.ratio4ySd.sma, color: colors.purple },
-    { name: "All SMA", metric: ratio.ratioSd.sma, color: colors.rose },
+    { name: "1w SMA", metric: ratio.ratio1wSma, color: colors.ma._1w },
+    { name: "1m SMA", metric: ratio.ratio1mSma, color: colors.ma._1m },
+    { name: "1y SMA", metric: ratio.ratio1ySd.sma, color: colors.ma._1y },
+    { name: "2y SMA", metric: ratio.ratio2ySd.sma, color: colors.ma._2y },
+    { name: "4y SMA", metric: ratio.ratio4ySd.sma, color: colors.ma._4y },
+    { name: "All SMA", metric: ratio.ratioSd.sma, color: colors.time.all },
   ]);
 }
 
 /**
  * Create ratio chart from ActivePriceRatioPattern
- * @param {PartialContext} ctx
  * @param {Object} args
  * @param {(metric: string) => string} args.title
  * @param {AnyPricePattern} args.pricePattern - The price pattern to show in top pane
- * @param {ActivePriceRatioPattern} args.ratio - The ratio pattern
+ * @param {AnyRatioPattern} args.ratio - The ratio pattern
  * @param {Color} args.color
  * @param {string} [args.name] - Optional name override (default: "ratio")
  * @returns {PartialChartOption}
  */
-export function createRatioChart(ctx, { title, pricePattern, ratio, color, name }) {
-  const { colors } = ctx;
-
+export function createRatioChart({ title, pricePattern, ratio, color, name }) {
   return {
     name: name ?? "ratio",
     title: title(name ?? "Ratio"),
     top: [
       price({ metric: pricePattern, name: "Price", color }),
-      ...percentileUsdMap(colors, ratio).map(({ name, prop, color }) =>
+      ...percentileUsdMap(ratio).map(({ name, prop, color }) =>
         price({
           metric: prop,
           name,
@@ -184,10 +364,10 @@ export function createRatioChart(ctx, { title, pricePattern, ratio, color, name 
         unit: Unit.ratio,
         base: 1,
       }),
-      ...ratioSmas(colors, ratio).map(({ name, metric, color }) =>
+      ...ratioSmas(ratio).map(({ name, metric, color }) =>
         line({ metric, name, color, unit: Unit.ratio, defaultActive: false }),
       ),
-      ...percentileMap(colors, ratio).map(({ name, prop, color }) =>
+      ...percentileMap(ratio).map(({ name, prop, color }) =>
         line({
           metric: prop,
           name,
@@ -203,20 +383,21 @@ export function createRatioChart(ctx, { title, pricePattern, ratio, color, name 
 
 /**
  * Create ZScores folder from ActivePriceRatioPattern
- * @param {PartialContext} ctx
  * @param {Object} args
- * @param {string} args.title
+ * @param {(suffix: string) => string} args.formatTitle - Function that takes metric suffix and returns full title
  * @param {string} args.legend
  * @param {AnyPricePattern} args.pricePattern - The price pattern to show in top pane
- * @param {ActivePriceRatioPattern} args.ratio - The ratio pattern
+ * @param {AnyRatioPattern} args.ratio - The ratio pattern
  * @param {Color} args.color
  * @returns {PartialOptionsGroup}
  */
-export function createZScoresFolder(
-  ctx,
-  { title, legend, pricePattern, ratio, color },
-) {
-  const { colors } = ctx;
+export function createZScoresFolder({
+  formatTitle,
+  legend,
+  pricePattern,
+  ratio,
+  color,
+}) {
   const sdPats = sdPatterns(ratio);
 
   return {
@@ -224,31 +405,31 @@ export function createZScoresFolder(
     tree: [
       {
         name: "Compare",
-        title: `${title} Z-Scores`,
+        title: formatTitle("Z-Scores"),
         top: [
           price({ metric: pricePattern, name: legend, color }),
           price({
             metric: ratio.ratio1ySd._0sdUsd,
             name: "1y 0σ",
-            color: colors.orange,
+            color: colors.ma._1y,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratio2ySd._0sdUsd,
             name: "2y 0σ",
-            color: colors.yellow,
+            color: colors.ma._2y,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratio4ySd._0sdUsd,
             name: "4y 0σ",
-            color: colors.lime,
+            color: colors.ma._4y,
             defaultActive: false,
           }),
           price({
             metric: ratio.ratioSd._0sdUsd,
             name: "all 0σ",
-            color: colors.blue,
+            color: colors.time.all,
             defaultActive: false,
           }),
         ],
@@ -256,29 +437,28 @@ export function createZScoresFolder(
           line({
             metric: ratio.ratioSd.zscore,
             name: "All",
-            color: colors.blue,
+            color: colors.time.all,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio4ySd.zscore,
             name: "4y",
-            color: colors.lime,
+            color: colors.ma._4y,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio2ySd.zscore,
             name: "2y",
-            color: colors.yellow,
+            color: colors.ma._2y,
             unit: Unit.sd,
           }),
           line({
             metric: ratio.ratio1ySd.zscore,
             name: "1y",
-            color: colors.orange,
+            color: colors.ma._1y,
             unit: Unit.sd,
           }),
           ...priceLines({
-            ctx,
             unit: Unit.sd,
             numbers: [0, 1, -1, 2, -2, 3, -3],
             defaultActive: false,
@@ -287,17 +467,16 @@ export function createZScoresFolder(
       },
       ...sdPats.map(({ nameAddon, titleAddon, sd }) => ({
         name: nameAddon,
-        title: `${title} ${titleAddon} Z-Score`,
+        title: formatTitle(`${titleAddon ? `${titleAddon} ` : ""}Z-Score`),
         top: [
           price({ metric: pricePattern, name: legend, color }),
-          ...sdBandsUsd(colors, sd).map(
-            ({ name: bandName, prop, color: bandColor }) =>
-              price({
-                metric: prop,
-                name: bandName,
-                color: bandColor,
-                defaultActive: false,
-              }),
+          ...sdBandsUsd(sd).map(({ name: bandName, prop, color: bandColor }) =>
+            price({
+              metric: prop,
+              name: bandName,
+              color: bandColor,
+              defaultActive: false,
+            }),
           ),
         ],
         bottom: [
@@ -318,7 +497,7 @@ export function createZScoresFolder(
             color: colors.gray,
             unit: Unit.percentage,
           }),
-          ...sdBandsRatio(colors, sd).map(
+          ...sdBandsRatio(sd).map(
             ({ name: bandName, prop, color: bandColor }) =>
               line({
                 metric: prop,
@@ -329,11 +508,9 @@ export function createZScoresFolder(
               }),
           ),
           priceLine({
-            ctx,
             unit: Unit.sd,
           }),
           ...priceLines({
-            ctx,
             unit: Unit.sd,
             numbers: [1, -1, 2, -2, 3, -3],
             defaultActive: false,
@@ -342,4 +519,55 @@ export function createZScoresFolder(
       })),
     ],
   };
+}
+
+/**
+ * Create price + ratio + z-scores charts - flat array
+ * Unified helper for averages, distribution, and other price-based metrics
+ * @param {Object} args
+ * @param {string} args.context - Context string for ratio/z-scores titles (e.g., "1 Week SMA", "STH")
+ * @param {string} args.legend - Legend name for the price series
+ * @param {AnyPricePattern} args.pricePattern - The price pattern
+ * @param {AnyRatioPattern} args.ratio - The ratio pattern
+ * @param {Color} args.color
+ * @param {string} [args.priceTitle] - Optional override for price chart title (default: context)
+ * @param {string} [args.titlePrefix] - Optional prefix for ratio/z-scores titles (e.g., "Realized Price" gives "Realized Price Ratio: STH")
+ * @param {FetchedPriceSeriesBlueprint[]} [args.priceReferences] - Optional additional price series to show in Price chart
+ * @returns {PartialOptionsTree}
+ */
+export function createPriceRatioCharts({
+  context,
+  legend,
+  pricePattern,
+  ratio,
+  color,
+  priceTitle,
+  titlePrefix,
+  priceReferences,
+}) {
+  const titleFn = formatCohortTitle(context);
+  return [
+    {
+      name: "Price",
+      title: priceTitle ?? context,
+      top: [
+        price({ metric: pricePattern, name: legend, color }),
+        ...(priceReferences ?? []),
+      ],
+    },
+    createRatioChart({
+      title: (name) => titleFn(titlePrefix ? `${titlePrefix} ${name}` : name),
+      pricePattern,
+      ratio,
+      color,
+    }),
+    createZScoresFolder({
+      formatTitle: (name) =>
+        titleFn(titlePrefix ? `${titlePrefix} ${name}` : name),
+      legend,
+      pricePattern,
+      ratio,
+      color,
+    }),
+  ];
 }
