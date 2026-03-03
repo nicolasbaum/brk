@@ -4,7 +4,7 @@ use vecdb::{Database, EagerVec, ImportableVec};
 
 use super::Vecs;
 
-const VERSION: Version = Version::new(3);
+const VERSION: Version = Version::new(4);
 
 impl Vecs {
     pub fn forced_import(db: &Database, version: Version) -> Result<Self> {
@@ -15,6 +15,7 @@ impl Vecs {
             dollar_index: EagerVec::forced_import(db, "dollar_index", v)?,
             fed_balance_sheet: EagerVec::forced_import(db, "fed_balance_sheet", v)?,
             sp500: EagerVec::forced_import(db, "sp500", v)?,
+            funding_rate: EagerVec::forced_import(db, "funding_rate", v)?,
         })
     }
 }

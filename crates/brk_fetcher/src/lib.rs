@@ -14,12 +14,14 @@ mod ohlc;
 mod retry;
 mod source;
 mod yahoo;
+mod binance_futures;
 
 pub use binance::*;
 pub use brk::*;
 pub use fred::*;
 pub use kraken::*;
 pub use yahoo::*;
+pub use binance_futures::*;
 pub use ohlc::compute_ohlc_from_range;
 use retry::*;
 pub use source::{PriceSource, TrackedSource};

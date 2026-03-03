@@ -2,7 +2,7 @@ use brk_traversable::Traversable;
 use brk_types::{DateIndex, StoredF32};
 use vecdb::{EagerVec, PcoVec};
 
-/// Other macroeconomic metrics from FRED
+/// Other macroeconomic metrics from FRED + external sources
 #[derive(Clone, Traversable)]
 pub struct Vecs {
     /// VIXCLS - VIX (daily)
@@ -13,4 +13,6 @@ pub struct Vecs {
     pub fed_balance_sheet: EagerVec<PcoVec<DateIndex, StoredF32>>,
     /// ^GSPC - S&P 500 Index, Yahoo Finance (daily)
     pub sp500: EagerVec<PcoVec<DateIndex, StoredF32>>,
+    /// BTC perpetual funding rate (daily avg of 8h readings), Binance Futures
+    pub funding_rate: EagerVec<PcoVec<DateIndex, StoredF32>>,
 }
