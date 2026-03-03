@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use brk_error::Result;
-use brk_fetcher::{Fred, Yahoo};
+use brk_fetcher::{BinanceFutures, Fred, Yahoo};
 use brk_types::{Date, DateIndex, StoredF32};
 use tracing::info;
 use vecdb::{AnyStoredVec, AnyVec, Exit, GenericStoredVec, IterableVec};
@@ -100,6 +100,7 @@ enum OtherField {
     DollarIndex,
     FedBalanceSheet,
     Sp500,
+    FundingRate,
 }
 
 impl Vecs {
@@ -212,6 +213,42 @@ impl Vecs {
             self.push_filled_values(target, &filled, starting_di, exit)?;
         }
 
+
+        // --- Binance Futures: BTC Perpetual Funding Rate ---
+        {
+            let target = SeriesTarget::Other(OtherField::FundingRate);
+            let vec_len = self.vec_len_for_target(target);
+            let starting_di = starting_indexes.dateindex.min(DateIndex::from(vec_len));
+
+            let start_date = if usize::from(starting_di) > 0 {
+                let fetch_di = DateIndex::from(usize::from(starting_di).saturating_sub(1));
+                Some(Date::from(fetch_di))
+            } else {
+                None
+            };
+
+            info!("Fetching Binance Futures funding rates...");
+            match BinanceFutures::fetch_daily_funding_rates(start_date) {
+                Ok(observations) => {
+                    if !observations.is_empty() {
+                        info!("Forward-filling funding_rate into {} dateindexes...", total_dateindexes);
+                        let filled = forward_fill(
+                            &observations,
+                            &date_to_dateindex,
+                            date_vec,
+                            total_dateindexes,
+                        )?;
+                        self.push_filled_values(target, &filled, starting_di, exit)?;
+                    } else {
+                        info!("No funding rate observations, skipping");
+                    }
+                }
+                Err(e) => {
+                    info!("Failed to fetch Binance funding rates: {e}, skipping");
+                }
+            }
+        }
+
         {
             let _lock = exit.lock();
             self.db.compact()?;
@@ -259,6 +296,7 @@ impl Vecs {
                 OtherField::DollarIndex => self.other.dollar_index.len(),
                 OtherField::FedBalanceSheet => self.other.fed_balance_sheet.len(),
                 OtherField::Sp500 => self.other.sp500.len(),
+                OtherField::FundingRate => self.other.funding_rate.len(),
             },
         }
     }
@@ -273,26 +311,39 @@ impl Vecs {
     ) -> Result<()> {
         macro_rules! push_to_vec {
             ($vec:expr) => {{
-                // Pad with default/last-known values to fill any gap between
+                // Track last known value for forward-fill and zero-rejection.
+                // Initialize from the last value already in the vec (if any).
+                let mut last_known_val: StoredF32 = if $vec.len() > 0 {
+                    $vec.iter().last().unwrap_or(StoredF32::from(0.0f32))
+                } else {
+                    StoredF32::from(0.0f32)
+                };
+
+                // Pad with last-known values to fill any gap between
                 // the current vec length and the first dateindex we're about to push.
-                // This handles both empty vecs AND non-empty vecs where FRED
-                // returned sparse data that skips some dateindexes.
                 if let Some(&(first_di, _)) = filled.iter().find(|&&(di, _)| di >= starting_di) {
                     let first_idx: usize = first_di.into();
                     let vec_len = $vec.len();
                     if first_idx > vec_len {
-                        let default_val = StoredF32::from(0.0f32);
                         for pad_idx in vec_len..first_idx {
-                            $vec.truncate_push_at(pad_idx, default_val)?;
+                            $vec.truncate_push_at(pad_idx, last_known_val)?;
                         }
                     }
                 }
                 for &(di, val) in filled {
                     if di >= starting_di {
                         let idx: usize = di.into();
-                        // Skip if we'd create a gap (shouldn't happen after padding, but be safe)
                         if idx <= $vec.len() {
-                            $vec.truncate_push_at(idx, val)?;
+                            // Reject 0.0 values — forward-fill from last known instead.
+                            // Macro economy series (yields, rates, prices) should never
+                            // legitimately be exactly 0.0; it indicates missing data.
+                            let final_val = if *val == 0.0f32 && *last_known_val != 0.0f32 {
+                                last_known_val
+                            } else {
+                                val
+                            };
+                            $vec.truncate_push_at(idx, final_val)?;
+                            last_known_val = final_val;
                         }
                     }
                 }
@@ -350,6 +401,7 @@ impl Vecs {
                 OtherField::DollarIndex => push_to_vec!(self.other.dollar_index),
                 OtherField::FedBalanceSheet => push_to_vec!(self.other.fed_balance_sheet),
                 OtherField::Sp500 => push_to_vec!(self.other.sp500),
+                OtherField::FundingRate => push_to_vec!(self.other.funding_rate),
             },
         }
 
@@ -395,7 +447,10 @@ fn forward_fill(
 
     for (&date, &value) in observations {
         if let Some(&di) = date_to_dateindex.get(&date) {
-            obs_by_dateindex.insert(di, value);
+            // Skip zero values from FRED — these indicate missing/holiday data
+            if value != 0.0 {
+                obs_by_dateindex.insert(di, value);
+            }
         } else {
             // This observation is before the first DateIndex or doesn't match exactly.
             // Keep track of values before the indexed range for forward-fill.
