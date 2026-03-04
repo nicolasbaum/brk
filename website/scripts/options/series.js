@@ -238,6 +238,7 @@ export function line({
   defaultActive,
   unit,
   options,
+  transform,
 }) {
   return {
     series,
@@ -247,6 +248,7 @@ export function line({
     colorFn,
     unit,
     defaultActive,
+    transform,
     options: {
       lineStyle: style,
       ...options,

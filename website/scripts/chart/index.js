@@ -558,6 +558,7 @@ export function createChart({ parent, brk, fitContent }) {
       key: customKey,
       defaultActive,
       colors,
+      transform,
       setOrder,
       applyOptions,
       getData,
@@ -812,7 +813,7 @@ export function createChart({ parent, brk, fitContent }) {
             if (v === null) {
               return { time, value: NaN };
             } else if (typeof v === "number") {
-              return { time, value: v };
+              return { time, value: transform ? transform(v) : v };
             } else {
               if (!Array.isArray(v) || v.length !== 4)
                 throw new Error(`Expected OHLC tuple, got: ${v}`);
@@ -1292,6 +1293,7 @@ export function createChart({ parent, brk, fitContent }) {
       paneIndex = 0,
       defaultActive,
       options,
+      transform,
     }) {
       const iseries = /** @type {LineISeries} */ (
         ichart.addSeries(
@@ -1312,6 +1314,7 @@ export function createChart({ parent, brk, fitContent }) {
         unit,
         defaultActive,
         source,
+        transform,
         setOrder: (order) => iseries.setSeriesOrder(order),
         applyOptions(active, highlighted) {
           iseries.applyOptions({
