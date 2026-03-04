@@ -230,8 +230,6 @@ impl Vecs {
             info!("Fetching Binance Futures funding rates...");
             match BinanceFutures::fetch_daily_funding_rates(start_date) {
                 Ok(observations) => {
-                    // Annualize via compounding: (1 + avg_8h_rate)^1095 - 1, then × 100 for percentage
-                    let observations: BTreeMap<Date, f32> = observations.into_iter().map(|(d, r)| (d, ((1.0_f64 + r as f64).powi(365) - 1.0) as f32 * 100.0)).collect();
                     if !observations.is_empty() {
                         info!("Forward-filling funding_rate into {} dateindexes...", total_dateindexes);
                         let filled = forward_fill(
