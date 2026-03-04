@@ -408,6 +408,18 @@ export function createMacroEconomySection(ctx) {
               }),
             ],
           },
+          {
+            name: "BTC Funding Rate",
+            title: "BTC Perpetual Futures Funding Rate (Binance, Daily Avg)",
+            bottom: [
+              line({
+                metric: other.fundingRate,
+                name: "Funding Rate",
+                unit: Unit.percentage,
+                color: colors.orange,
+              }),
+            ],
+          },
         ],
       },
     ],

@@ -3754,6 +3754,7 @@ function createOutputsPattern(client, acc) {
  * @typedef {Object} MetricsTree_MacroEconomy_Other
  * @property {MetricPattern6<StoredF32>} dollarIndex
  * @property {MetricPattern6<StoredF32>} fedBalanceSheet
+ * @property {MetricPattern6<StoredF32>} fundingRate
  * @property {MetricPattern6<StoredF32>} sp500
  * @property {MetricPattern6<StoredF32>} vix
  */
@@ -5946,6 +5947,7 @@ class BrkClient extends BrkClientBase {
         other: {
           dollarIndex: createMetricPattern6(this, 'dollar_index'),
           fedBalanceSheet: createMetricPattern6(this, 'fed_balance_sheet'),
+          fundingRate: createMetricPattern6(this, 'funding_rate'),
           sp500: createMetricPattern6(this, 'sp500'),
           vix: createMetricPattern6(this, 'vix'),
         },
