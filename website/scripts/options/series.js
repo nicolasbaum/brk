@@ -90,6 +90,7 @@ export function line({
   defaultActive,
   unit,
   options,
+  transform,
 }) {
   return {
     metric,
@@ -98,6 +99,7 @@ export function line({
     color,
     unit,
     defaultActive,
+    transform,
     options: {
       lineStyle: style,
       ...options,
