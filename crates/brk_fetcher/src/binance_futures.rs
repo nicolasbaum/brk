@@ -13,7 +13,10 @@ use crate::{
 pub struct BinanceFutures;
 
 impl BinanceFutures {
-    /// Fetch all historical funding rates for BTCUSDT and return daily averages.
+    /// Fetch all historical funding rates for BTCUSDT and return daily compounded rates.
+    ///
+    /// The Binance Futures API returns funding rates every 8 hours (3 per day).
+    /// We compound them as `(1 + r1) * (1 + r2) * (1 + r3) - 1`.
     pub fn fetch_daily_funding_rates(start_date: Option<Date>) -> Result<BTreeMap<Date, f32>> {
         let mut all_rates: BTreeMap<Date, Vec<f32>> = BTreeMap::new();
 
@@ -47,17 +50,21 @@ impl BinanceFutures {
             }
         }
 
-        let daily_avg = all_rates
+        let daily_compounded = all_rates
             .into_iter()
             .map(|(date, rates)| {
-                let avg = rates.iter().sum::<f32>() / rates.len() as f32;
-                (date, avg)
+                let compounded = rates.iter().fold(1.0_f64, |acc, &rate| acc * (1.0 + rate as f64))
+                    - 1.0;
+                (date, compounded as f32)
             })
             .collect();
 
-        info!("Fetched {} daily funding rate observations", daily_avg.len());
+        info!(
+            "Fetched {} daily funding rate observations",
+            daily_compounded.len()
+        );
 
-        Ok(daily_avg)
+        Ok(daily_compounded)
     }
 
     fn fetch_batch(start_time_ms: u64) -> Result<Vec<(u64, f32)>> {
