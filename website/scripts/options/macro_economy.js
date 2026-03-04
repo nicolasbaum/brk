@@ -410,7 +410,7 @@ export function createMacroEconomySection(ctx) {
           },
           {
             name: "BTC Funding Rate",
-            title: "BTC Perpetual Futures Funding Rate — Annualized % (Binance)",
+            title: "BTC Perpetual Futures Funding Rate — 8h Rate (Binance)",
             bottom: [
               line({
                 metric: other.fundingRate,
