@@ -4,7 +4,7 @@ use vecdb::{Database, EagerVec, ImportableVec};
 
 use super::Vecs;
 
-const VERSION: Version = Version::new(5);
+const VERSION: Version = Version::new(6);
 
 impl Vecs {
     pub fn forced_import(db: &Database, version: Version) -> Result<Self> {
