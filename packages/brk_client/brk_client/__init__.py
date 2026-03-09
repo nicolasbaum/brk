@@ -3321,6 +3321,8 @@ class MetricsTree_MacroEconomy_Commodities:
     def __init__(self, client: BrkClientBase, base_path: str = ''):
         self.gold_price: MetricPattern6[StoredF32] = MetricPattern6(client, 'gold_price')
         self.silver_price: MetricPattern6[StoredF32] = MetricPattern6(client, 'silver_price')
+        self.oil_wti: MetricPattern6[StoredF32] = MetricPattern6(client, 'oil_wti')
+        self.oil_brent: MetricPattern6[StoredF32] = MetricPattern6(client, 'oil_brent')
 
 class MetricsTree_MacroEconomy_Employment:
     """Metrics tree node."""

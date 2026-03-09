@@ -3710,6 +3710,8 @@ function createOutputsPattern(client, acc) {
  * @typedef {Object} MetricsTree_MacroEconomy_Commodities
  * @property {MetricPattern6<StoredF32>} goldPrice
  * @property {MetricPattern6<StoredF32>} silverPrice
+ * @property {MetricPattern6<StoredF32>} oilWti
+ * @property {MetricPattern6<StoredF32>} oilBrent
  */
 
 /**
@@ -5915,6 +5917,8 @@ class BrkClient extends BrkClientBase {
         commodities: {
           goldPrice: createMetricPattern6(this, 'gold_price'),
           silverPrice: createMetricPattern6(this, 'silver_price'),
+          oilWti: createMetricPattern6(this, 'oil_wti'),
+          oilBrent: createMetricPattern6(this, 'oil_brent'),
         },
         employment: {
           initialClaims: createMetricPattern6(this, 'initial_claims'),
