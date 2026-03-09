@@ -9,4 +9,8 @@ pub struct Vecs {
     pub gold_price: EagerVec<PcoVec<DateIndex, StoredF32>>,
     /// SI=F - Silver Futures, USD per Troy Ounce (daily)
     pub silver_price: EagerVec<PcoVec<DateIndex, StoredF32>>,
+    /// CL=F - WTI Crude Oil Futures, USD per Barrel (daily)
+    pub oil_wti: EagerVec<PcoVec<DateIndex, StoredF32>>,
+    /// BZ=F - Brent Crude Oil Futures, USD per Barrel (daily)
+    pub oil_brent: EagerVec<PcoVec<DateIndex, StoredF32>>,
 }

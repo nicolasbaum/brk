@@ -92,6 +92,8 @@ enum GrowthField {
 enum CommodityField {
     GoldPrice,
     SilverPrice,
+    OilWti,
+    OilBrent,
 }
 
 #[derive(Clone, Copy)]
@@ -173,6 +175,8 @@ impl Vecs {
         let yahoo_series: &[(&str, SeriesTarget)] = &[
             ("GC=F", SeriesTarget::Commodities(CommodityField::GoldPrice)),
             ("SI=F", SeriesTarget::Commodities(CommodityField::SilverPrice)),
+            ("CL=F", SeriesTarget::Commodities(CommodityField::OilWti)),
+            ("BZ=F", SeriesTarget::Commodities(CommodityField::OilBrent)),
             ("^GSPC", SeriesTarget::Other(OtherField::Sp500)),
         ];
 
@@ -290,6 +294,8 @@ impl Vecs {
             SeriesTarget::Commodities(f) => match f {
                 CommodityField::GoldPrice => self.commodities.gold_price.len(),
                 CommodityField::SilverPrice => self.commodities.silver_price.len(),
+                CommodityField::OilWti => self.commodities.oil_wti.len(),
+                CommodityField::OilBrent => self.commodities.oil_brent.len(),
             },
             SeriesTarget::Other(f) => match f {
                 OtherField::Vix => self.other.vix.len(),
@@ -395,6 +401,8 @@ impl Vecs {
             SeriesTarget::Commodities(f) => match f {
                 CommodityField::GoldPrice => push_to_vec!(self.commodities.gold_price),
                 CommodityField::SilverPrice => push_to_vec!(self.commodities.silver_price),
+                CommodityField::OilWti => push_to_vec!(self.commodities.oil_wti),
+                CommodityField::OilBrent => push_to_vec!(self.commodities.oil_brent),
             },
             SeriesTarget::Other(f) => match f {
                 OtherField::Vix => push_to_vec!(self.other.vix),

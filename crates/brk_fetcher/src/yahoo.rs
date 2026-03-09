@@ -11,6 +11,8 @@ use crate::{check_response, default_retry};
 pub const YAHOO_SERIES: &[YahooSeries] = &[
     YahooSeries::new("GC=F", "Gold Futures (USD/oz)"),
     YahooSeries::new("SI=F", "Silver Futures (USD/oz)"),
+    YahooSeries::new("CL=F", "WTI Crude Oil Futures (USD/bbl)"),
+    YahooSeries::new("BZ=F", "Brent Crude Oil Futures (USD/bbl)"),
     YahooSeries::new("^GSPC", "S&P 500 Index"),
 ];
 

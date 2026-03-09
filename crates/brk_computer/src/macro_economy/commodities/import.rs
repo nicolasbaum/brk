@@ -13,6 +13,8 @@ impl Vecs {
         Ok(Self {
             gold_price: EagerVec::forced_import(db, "gold_price", v)?,
             silver_price: EagerVec::forced_import(db, "silver_price", v)?,
+            oil_wti: EagerVec::forced_import(db, "oil_wti", v)?,
+            oil_brent: EagerVec::forced_import(db, "oil_brent", v)?,
         })
     }
 }

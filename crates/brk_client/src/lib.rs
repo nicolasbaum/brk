@@ -4177,6 +4177,8 @@ impl MetricsTree_MacroEconomy {
 pub struct MetricsTree_MacroEconomy_Commodities {
     pub gold_price: MetricPattern6<StoredF32>,
     pub silver_price: MetricPattern6<StoredF32>,
+    pub oil_wti: MetricPattern6<StoredF32>,
+    pub oil_brent: MetricPattern6<StoredF32>,
 }
 
 impl MetricsTree_MacroEconomy_Commodities {
@@ -4184,6 +4186,8 @@ impl MetricsTree_MacroEconomy_Commodities {
         Self {
             gold_price: MetricPattern6::new(client.clone(), "gold_price".to_string()),
             silver_price: MetricPattern6::new(client.clone(), "silver_price".to_string()),
+            oil_wti: MetricPattern6::new(client.clone(), "oil_wti".to_string()),
+            oil_brent: MetricPattern6::new(client.clone(), "oil_brent".to_string()),
         }
     }
 }
