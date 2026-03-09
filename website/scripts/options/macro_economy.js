@@ -353,6 +353,48 @@ export function createMacroEconomySection(ctx) {
               }),
             ],
           },
+          {
+            name: "WTI Crude Oil",
+            title: "WTI Crude Oil Futures (USD/bbl)",
+            bottom: [
+              line({
+                metric: commodities.oilWti,
+                name: "WTI",
+                unit: Unit.usd,
+                color: colors.orange,
+              }),
+            ],
+          },
+          {
+            name: "Brent Crude Oil",
+            title: "Brent Crude Oil Futures (USD/bbl)",
+            bottom: [
+              line({
+                metric: commodities.oilBrent,
+                name: "Brent",
+                unit: Unit.usd,
+                color: colors.red,
+              }),
+            ],
+          },
+          {
+            name: "WTI vs Brent",
+            title: "Crude Oil Comparison",
+            bottom: [
+              line({
+                metric: commodities.oilWti,
+                name: "WTI",
+                unit: Unit.usd,
+                color: colors.orange,
+              }),
+              line({
+                metric: commodities.oilBrent,
+                name: "Brent",
+                unit: Unit.usd,
+                color: colors.red,
+              }),
+            ],
+          },
         ],
       },
 
