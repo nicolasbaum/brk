@@ -124,7 +124,7 @@ enum OtherField {
 impl Vecs {
     pub fn compute(
         &mut self,
-        fred: &Fred,
+        fred: Option<&Fred>,
         indexes: &indexes::Vecs,
         starting_indexes: &Indexes,
         exit: &Exit,
@@ -145,26 +145,30 @@ impl Vecs {
             .unwrap_or_default();
         let date_to_day1 = build_date_to_day1(date_vec)?;
 
-        for &(series_id, target) in SERIES_MAP {
-            let starting_day1 = self.starting_day1_for_target(target, starting_day1);
-            let start_date = start_date_for_day1(starting_day1);
+        if let Some(fred) = fred {
+            for &(series_id, target) in SERIES_MAP {
+                let starting_day1 = self.starting_day1_for_target(target, starting_day1);
+                let start_date = start_date_for_day1(starting_day1);
 
-            info!("Fetching FRED series {series_id}...");
-            let observations = match fred.fetch_series(series_id, start_date) {
-                Ok(observations) => observations,
-                Err(e) => {
-                    info!("Failed to fetch FRED series {series_id}: {e}, skipping");
+                info!("Fetching FRED series {series_id}...");
+                let observations = match fred.fetch_series(series_id, start_date) {
+                    Ok(observations) => observations,
+                    Err(e) => {
+                        info!("Failed to fetch FRED series {series_id}: {e}, skipping");
+                        continue;
+                    }
+                };
+
+                if observations.is_empty() {
+                    info!("No observations for {series_id}, skipping");
                     continue;
                 }
-            };
 
-            if observations.is_empty() {
-                info!("No observations for {series_id}, skipping");
-                continue;
+                let filled = forward_fill(&observations, &date_to_day1, total_day1s);
+                self.push_filled_values(target, &filled, starting_day1, exit)?;
             }
-
-            let filled = forward_fill(&observations, &date_to_day1, total_day1s);
-            self.push_filled_values(target, &filled, starting_day1, exit)?;
+        } else {
+            info!("No FRED API key configured, skipping FRED-backed macro series");
         }
 
         let yahoo = Yahoo::new();

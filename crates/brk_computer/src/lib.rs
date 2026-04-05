@@ -327,12 +327,10 @@ impl Computer {
             self.indexes.compute(indexer, starting_indexes, exit)
         })?;
 
-        if let Some(fred) = self.fred.as_ref() {
-            timed("Computed macro economy", || {
-                self.macro_economy
-                    .compute(fred, &self.indexes, &starting_indexes, exit)
-            })?;
-        }
+        timed("Computed macro economy", || {
+            self.macro_economy
+                .compute(self.fred.as_ref(), &self.indexes, &starting_indexes, exit)
+        })?;
 
         thread::scope(|scope| -> Result<()> {
             timed("Computed blocks", || {

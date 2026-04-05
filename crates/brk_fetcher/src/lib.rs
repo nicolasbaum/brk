@@ -71,11 +71,30 @@ impl Fetcher {
 
     pub fn new(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
         let agent = new_agent(30);
+        let fred = match fred_api_key {
+            Some(api_key) if api_key.trim().is_empty() => {
+                warn!(
+                    "FRED fetcher disabled: configured API key is empty. Set --fred-api-key or FRED_API_KEY to enable FRED-backed macro series."
+                );
+                None
+            }
+            Some(api_key) => {
+                info!("FRED fetcher initialized");
+                Some(Fred::new(agent.clone(), api_key))
+            }
+            None => {
+                warn!(
+                    "FRED fetcher disabled: no API key configured. Set --fred-api-key or FRED_API_KEY to enable FRED-backed macro series."
+                );
+                None
+            }
+        };
+
         Ok(Self {
             binance: TrackedSource::new(Binance::new_with_agent(hars_path, agent.clone())),
             kraken: TrackedSource::new(Kraken::new_with_agent(agent.clone())),
             brk: TrackedSource::new(BRK::new_with_agent(agent.clone())),
-            fred: fred_api_key.map(|api_key| Fred::new(agent.clone(), api_key)),
+            fred,
             agent,
         })
     }
