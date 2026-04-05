@@ -3130,6 +3130,7 @@ pub struct SeriesTree {
     pub indexes: SeriesTree_Indexes,
     pub indicators: SeriesTree_Indicators,
     pub investing: SeriesTree_Investing,
+    pub macro_economy: SeriesTree_MacroEconomy,
     pub market: SeriesTree_Market,
     pub pools: SeriesTree_Pools,
     pub prices: SeriesTree_Prices,
@@ -3152,6 +3153,7 @@ impl SeriesTree {
             indexes: SeriesTree_Indexes::new(client.clone(), format!("{base_path}_indexes")),
             indicators: SeriesTree_Indicators::new(client.clone(), format!("{base_path}_indicators")),
             investing: SeriesTree_Investing::new(client.clone(), format!("{base_path}_investing")),
+            macro_economy: SeriesTree_MacroEconomy::new(client.clone(), format!("{base_path}_macro_economy")),
             market: SeriesTree_Market::new(client.clone(), format!("{base_path}_market")),
             pools: SeriesTree_Pools::new(client.clone(), format!("{base_path}_pools")),
             prices: SeriesTree_Prices::new(client.clone(), format!("{base_path}_prices")),
@@ -5154,6 +5156,7 @@ pub struct SeriesTree_Indicators {
     pub gini: BpsPercentRatioPattern3,
     pub rhodl_ratio: BpsRatioPattern2,
     pub thermo_cap_multiple: BpsRatioPattern2,
+    pub mvrv_z_score: SeriesPattern1<StoredF32>,
     pub coindays_destroyed_supply_adjusted: SeriesPattern1<StoredF32>,
     pub coinyears_destroyed_supply_adjusted: SeriesPattern1<StoredF32>,
     pub dormancy: SeriesTree_Indicators_Dormancy,
@@ -5170,6 +5173,7 @@ impl SeriesTree_Indicators {
             gini: BpsPercentRatioPattern3::new(client.clone(), "gini".to_string()),
             rhodl_ratio: BpsRatioPattern2::new(client.clone(), "rhodl_ratio".to_string()),
             thermo_cap_multiple: BpsRatioPattern2::new(client.clone(), "thermo_cap_multiple".to_string()),
+            mvrv_z_score: SeriesPattern1::new(client.clone(), "mvrv_z_score".to_string()),
             coindays_destroyed_supply_adjusted: SeriesPattern1::new(client.clone(), "coindays_destroyed_supply_adjusted".to_string()),
             coinyears_destroyed_supply_adjusted: SeriesPattern1::new(client.clone(), "coinyears_destroyed_supply_adjusted".to_string()),
             dormancy: SeriesTree_Indicators_Dormancy::new(client.clone(), format!("{base_path}_dormancy")),
@@ -5419,6 +5423,162 @@ impl SeriesTree_Investing_Class_DcaReturn {
             from_2024: BpsPercentRatioPattern::new(client.clone(), "dca_return_from_2024".to_string()),
             from_2025: BpsPercentRatioPattern::new(client.clone(), "dca_return_from_2025".to_string()),
             from_2026: BpsPercentRatioPattern::new(client.clone(), "dca_return_from_2026".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy {
+    pub interest_rates: SeriesTree_MacroEconomy_InterestRates,
+    pub money_supply: SeriesTree_MacroEconomy_MoneySupply,
+    pub employment: SeriesTree_MacroEconomy_Employment,
+    pub inflation: SeriesTree_MacroEconomy_Inflation,
+    pub growth: SeriesTree_MacroEconomy_Growth,
+    pub commodities: SeriesTree_MacroEconomy_Commodities,
+    pub other: SeriesTree_MacroEconomy_Other,
+}
+
+impl SeriesTree_MacroEconomy {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            interest_rates: SeriesTree_MacroEconomy_InterestRates::new(client.clone(), format!("{base_path}_interest_rates")),
+            money_supply: SeriesTree_MacroEconomy_MoneySupply::new(client.clone(), format!("{base_path}_money_supply")),
+            employment: SeriesTree_MacroEconomy_Employment::new(client.clone(), format!("{base_path}_employment")),
+            inflation: SeriesTree_MacroEconomy_Inflation::new(client.clone(), format!("{base_path}_inflation")),
+            growth: SeriesTree_MacroEconomy_Growth::new(client.clone(), format!("{base_path}_growth")),
+            commodities: SeriesTree_MacroEconomy_Commodities::new(client.clone(), format!("{base_path}_commodities")),
+            other: SeriesTree_MacroEconomy_Other::new(client.clone(), format!("{base_path}_other")),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_InterestRates {
+    pub fed_funds_rate: SeriesPattern8<StoredF32>,
+    pub treasury_yield_2y: SeriesPattern8<StoredF32>,
+    pub treasury_yield_10y: SeriesPattern8<StoredF32>,
+    pub treasury_yield_30y: SeriesPattern8<StoredF32>,
+    pub yield_spread_10y_2y: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_InterestRates {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            fed_funds_rate: SeriesPattern8::new(client.clone(), "fed_funds_rate".to_string()),
+            treasury_yield_2y: SeriesPattern8::new(client.clone(), "treasury_yield_2y".to_string()),
+            treasury_yield_10y: SeriesPattern8::new(client.clone(), "treasury_yield_10y".to_string()),
+            treasury_yield_30y: SeriesPattern8::new(client.clone(), "treasury_yield_30y".to_string()),
+            yield_spread_10y_2y: SeriesPattern8::new(client.clone(), "yield_spread_10y_2y".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_MoneySupply {
+    pub m1: SeriesPattern8<StoredF32>,
+    pub m2: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_MoneySupply {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            m1: SeriesPattern8::new(client.clone(), "m1".to_string()),
+            m2: SeriesPattern8::new(client.clone(), "m2".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_Employment {
+    pub unemployment_rate: SeriesPattern8<StoredF32>,
+    pub initial_claims: SeriesPattern8<StoredF32>,
+    pub nonfarm_payrolls: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_Employment {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            unemployment_rate: SeriesPattern8::new(client.clone(), "unemployment_rate".to_string()),
+            initial_claims: SeriesPattern8::new(client.clone(), "initial_claims".to_string()),
+            nonfarm_payrolls: SeriesPattern8::new(client.clone(), "nonfarm_payrolls".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_Inflation {
+    pub cpi: SeriesPattern8<StoredF32>,
+    pub core_cpi: SeriesPattern8<StoredF32>,
+    pub pce: SeriesPattern8<StoredF32>,
+    pub core_pce: SeriesPattern8<StoredF32>,
+    pub ppi: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_Inflation {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            cpi: SeriesPattern8::new(client.clone(), "cpi".to_string()),
+            core_cpi: SeriesPattern8::new(client.clone(), "core_cpi".to_string()),
+            pce: SeriesPattern8::new(client.clone(), "pce".to_string()),
+            core_pce: SeriesPattern8::new(client.clone(), "core_pce".to_string()),
+            ppi: SeriesPattern8::new(client.clone(), "ppi".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_Growth {
+    pub gdp: SeriesPattern8<StoredF32>,
+    pub consumer_confidence: SeriesPattern8<StoredF32>,
+    pub retail_sales: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_Growth {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            gdp: SeriesPattern8::new(client.clone(), "gdp".to_string()),
+            consumer_confidence: SeriesPattern8::new(client.clone(), "consumer_confidence".to_string()),
+            retail_sales: SeriesPattern8::new(client.clone(), "retail_sales".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_Commodities {
+    pub gold_price: SeriesPattern8<StoredF32>,
+    pub silver_price: SeriesPattern8<StoredF32>,
+    pub oil_wti: SeriesPattern8<StoredF32>,
+    pub oil_brent: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_Commodities {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            gold_price: SeriesPattern8::new(client.clone(), "gold_price".to_string()),
+            silver_price: SeriesPattern8::new(client.clone(), "silver_price".to_string()),
+            oil_wti: SeriesPattern8::new(client.clone(), "oil_wti".to_string()),
+            oil_brent: SeriesPattern8::new(client.clone(), "oil_brent".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_MacroEconomy_Other {
+    pub vix: SeriesPattern8<StoredF32>,
+    pub dollar_index: SeriesPattern8<StoredF32>,
+    pub fed_balance_sheet: SeriesPattern8<StoredF32>,
+    pub sp500: SeriesPattern8<StoredF32>,
+    pub funding_rate: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_MacroEconomy_Other {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            vix: SeriesPattern8::new(client.clone(), "vix".to_string()),
+            dollar_index: SeriesPattern8::new(client.clone(), "dollar_index".to_string()),
+            fed_balance_sheet: SeriesPattern8::new(client.clone(), "fed_balance_sheet".to_string()),
+            sp500: SeriesPattern8::new(client.clone(), "sp500".to_string()),
+            funding_rate: SeriesPattern8::new(client.clone(), "funding_rate".to_string()),
         }
     }
 }

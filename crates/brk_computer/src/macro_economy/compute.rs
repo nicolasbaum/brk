@@ -2,39 +2,55 @@ use std::collections::BTreeMap;
 
 use brk_error::Result;
 use brk_fetcher::{BinanceFutures, Fred, Yahoo};
-use brk_types::{Date, DateIndex, StoredF32};
+use brk_types::{Date, Day1, Indexes, StoredF32};
 use tracing::info;
-use vecdb::{AnyStoredVec, AnyVec, Exit, GenericStoredVec, IterableVec};
+use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableVec, WritableVec};
 
 use super::Vecs;
-use crate::{indexes, ComputeIndexes};
+use crate::indexes;
 
-/// Mapping from FRED series ID to the field name in our vecs.
-/// Each entry is (series_id, vec_field_name).
 const SERIES_MAP: &[(&str, SeriesTarget)] = &[
-    // Interest Rates
-    ("DFF", SeriesTarget::InterestRates(InterestRateField::FedFundsRate)),
-    ("DGS2", SeriesTarget::InterestRates(InterestRateField::TreasuryYield2y)),
-    ("DGS10", SeriesTarget::InterestRates(InterestRateField::TreasuryYield10y)),
-    ("DGS30", SeriesTarget::InterestRates(InterestRateField::TreasuryYield30y)),
-    // Money Supply
+    (
+        "DFF",
+        SeriesTarget::InterestRates(InterestRateField::FedFundsRate),
+    ),
+    (
+        "DGS2",
+        SeriesTarget::InterestRates(InterestRateField::TreasuryYield2y),
+    ),
+    (
+        "DGS10",
+        SeriesTarget::InterestRates(InterestRateField::TreasuryYield10y),
+    ),
+    (
+        "DGS30",
+        SeriesTarget::InterestRates(InterestRateField::TreasuryYield30y),
+    ),
     ("M1SL", SeriesTarget::MoneySupply(MoneySupplyField::M1)),
     ("WM2NS", SeriesTarget::MoneySupply(MoneySupplyField::M2)),
-    // Employment
-    ("UNRATE", SeriesTarget::Employment(EmploymentField::UnemploymentRate)),
-    ("ICSA", SeriesTarget::Employment(EmploymentField::InitialClaims)),
-    ("PAYEMS", SeriesTarget::Employment(EmploymentField::NonfarmPayrolls)),
-    // Inflation
+    (
+        "UNRATE",
+        SeriesTarget::Employment(EmploymentField::UnemploymentRate),
+    ),
+    (
+        "ICSA",
+        SeriesTarget::Employment(EmploymentField::InitialClaims),
+    ),
+    (
+        "PAYEMS",
+        SeriesTarget::Employment(EmploymentField::NonfarmPayrolls),
+    ),
     ("CPIAUCSL", SeriesTarget::Inflation(InflationField::Cpi)),
     ("CPILFESL", SeriesTarget::Inflation(InflationField::CoreCpi)),
     ("PCEPI", SeriesTarget::Inflation(InflationField::Pce)),
     ("PCEPILFE", SeriesTarget::Inflation(InflationField::CorePce)),
     ("PPIACO", SeriesTarget::Inflation(InflationField::Ppi)),
-    // Growth
     ("GDP", SeriesTarget::Growth(GrowthField::Gdp)),
-    ("UMCSENT", SeriesTarget::Growth(GrowthField::ConsumerConfidence)),
+    (
+        "UMCSENT",
+        SeriesTarget::Growth(GrowthField::ConsumerConfidence),
+    ),
     ("RSXFS", SeriesTarget::Growth(GrowthField::RetailSales)),
-    // Other
     ("VIXCLS", SeriesTarget::Other(OtherField::Vix)),
     ("DTWEXBGS", SeriesTarget::Other(OtherField::DollarIndex)),
     ("WALCL", SeriesTarget::Other(OtherField::FedBalanceSheet)),
@@ -110,40 +126,32 @@ impl Vecs {
         &mut self,
         fred: &Fred,
         indexes: &indexes::Vecs,
-        starting_indexes: &ComputeIndexes,
+        starting_indexes: &Indexes,
         exit: &Exit,
     ) -> Result<()> {
-        // Build the full DateIndex → Date mapping from the indexes.
-        // This tells us all the dates we have in the system and their DateIndex.
-        let date_vec = &indexes.dateindex.date;
-        let total_dateindexes = date_vec.len();
+        let date_vec = &indexes.day1.date;
+        let total_day1s = date_vec.len();
 
-        if total_dateindexes == 0 {
-            info!("No dateindexes yet, skipping macro economy computation");
+        if total_day1s == 0 {
+            info!("No day1 indexes yet, skipping macro economy computation");
             return Ok(());
         }
 
-        // Build Date → DateIndex lookup from the indexes
-        let date_to_dateindex = build_date_to_dateindex(date_vec)?;
+        let prev_height = starting_indexes.height.decremented().unwrap_or_default();
+        let starting_day1 = indexes
+            .height
+            .day1
+            .collect_one(prev_height)
+            .unwrap_or_default();
+        let date_to_day1 = build_date_to_day1(date_vec)?;
 
-        // Process each FRED series
         for &(series_id, target) in SERIES_MAP {
-            // Determine the starting dateindex for this vec to know where to resume
-            let vec_len = self.vec_len_for_target(target);
-            let starting_di = starting_indexes.dateindex.min(DateIndex::from(vec_len));
-
-            // Determine start_date for incremental fetch
-            let start_date = if usize::from(starting_di) > 0 {
-                // Fetch from a bit before the starting point to ensure we have forward-fill data
-                let fetch_di = DateIndex::from(usize::from(starting_di).saturating_sub(1));
-                Some(Date::from(fetch_di))
-            } else {
-                None
-            };
+            let starting_day1 = self.starting_day1_for_target(target, starting_day1);
+            let start_date = start_date_for_day1(starting_day1);
 
             info!("Fetching FRED series {series_id}...");
             let observations = match fred.fetch_series(series_id, start_date) {
-                Ok(obs) => obs,
+                Ok(observations) => observations,
                 Err(e) => {
                     info!("Failed to fetch FRED series {series_id}: {e}, skipping");
                     continue;
@@ -155,45 +163,29 @@ impl Vecs {
                 continue;
             }
 
-            // Forward-fill observations into DateIndex-aligned values.
-            // For each DateIndex, find the most recent observation on or before that date.
-            info!("Forward-filling {series_id} into {} dateindexes...", total_dateindexes);
-
-            let filled = forward_fill(
-                &observations,
-                &date_to_dateindex,
-                date_vec,
-                total_dateindexes,
-            )?;
-
-            // Push filled values into the appropriate EagerVec
-            self.push_filled_values(target, &filled, starting_di, exit)?;
+            let filled = forward_fill(&observations, &date_to_day1, total_day1s);
+            self.push_filled_values(target, &filled, starting_day1, exit)?;
         }
 
-        // --- Yahoo Finance series (gold, silver, S&P 500) ---
         let yahoo = Yahoo::new();
         let yahoo_series: &[(&str, SeriesTarget)] = &[
             ("GC=F", SeriesTarget::Commodities(CommodityField::GoldPrice)),
-            ("SI=F", SeriesTarget::Commodities(CommodityField::SilverPrice)),
+            (
+                "SI=F",
+                SeriesTarget::Commodities(CommodityField::SilverPrice),
+            ),
             ("CL=F", SeriesTarget::Commodities(CommodityField::OilWti)),
             ("BZ=F", SeriesTarget::Commodities(CommodityField::OilBrent)),
             ("^GSPC", SeriesTarget::Other(OtherField::Sp500)),
         ];
 
         for &(symbol, target) in yahoo_series {
-            let vec_len = self.vec_len_for_target(target);
-            let starting_di = starting_indexes.dateindex.min(DateIndex::from(vec_len));
-
-            let start_date = if usize::from(starting_di) > 0 {
-                let fetch_di = DateIndex::from(usize::from(starting_di).saturating_sub(1));
-                Some(Date::from(fetch_di))
-            } else {
-                None
-            };
+            let starting_day1 = self.starting_day1_for_target(target, starting_day1);
+            let start_date = start_date_for_day1(starting_day1);
 
             info!("Fetching Yahoo Finance {symbol}...");
             let observations = match yahoo.fetch_series(symbol, start_date) {
-                Ok(obs) => obs,
+                Ok(observations) => observations,
                 Err(e) => {
                     info!("Failed to fetch Yahoo Finance {symbol}: {e}, skipping");
                     continue;
@@ -205,52 +197,22 @@ impl Vecs {
                 continue;
             }
 
-            info!("Forward-filling {symbol} into {} dateindexes...", total_dateindexes);
-
-            let filled = forward_fill(
-                &observations,
-                &date_to_dateindex,
-                date_vec,
-                total_dateindexes,
-            )?;
-
-            self.push_filled_values(target, &filled, starting_di, exit)?;
+            let filled = forward_fill(&observations, &date_to_day1, total_day1s);
+            self.push_filled_values(target, &filled, starting_day1, exit)?;
         }
 
+        let funding_target = SeriesTarget::Other(OtherField::FundingRate);
+        let funding_starting_day1 = self.starting_day1_for_target(funding_target, starting_day1);
+        let funding_start_date = start_date_for_day1(funding_starting_day1);
 
-        // --- Binance Futures: BTC Perpetual Funding Rate ---
-        {
-            let target = SeriesTarget::Other(OtherField::FundingRate);
-            let vec_len = self.vec_len_for_target(target);
-            let starting_di = starting_indexes.dateindex.min(DateIndex::from(vec_len));
-
-            let start_date = if usize::from(starting_di) > 0 {
-                let fetch_di = DateIndex::from(usize::from(starting_di).saturating_sub(1));
-                Some(Date::from(fetch_di))
-            } else {
-                None
-            };
-
-            info!("Fetching Binance Futures funding rates...");
-            match BinanceFutures::fetch_daily_funding_rates(start_date) {
-                Ok(observations) => {
-                    if !observations.is_empty() {
-                        info!("Forward-filling funding_rate into {} dateindexes...", total_dateindexes);
-                        let filled = forward_fill(
-                            &observations,
-                            &date_to_dateindex,
-                            date_vec,
-                            total_dateindexes,
-                        )?;
-                        self.push_filled_values(target, &filled, starting_di, exit)?;
-                    } else {
-                        info!("No funding rate observations, skipping");
-                    }
-                }
-                Err(e) => {
-                    info!("Failed to fetch Binance funding rates: {e}, skipping");
-                }
+        info!("Fetching Binance Futures funding rates...");
+        match BinanceFutures::fetch_daily_funding_rates(funding_start_date) {
+            Ok(observations) if !observations.is_empty() => {
+                let filled = forward_fill(&observations, &date_to_day1, total_day1s);
+                self.push_filled_values(funding_target, &filled, funding_starting_day1, exit)?;
             }
+            Ok(_) => info!("No funding rate observations, skipping"),
+            Err(e) => info!("Failed to fetch Binance funding rates: {e}, skipping"),
         }
 
         {
@@ -261,43 +223,46 @@ impl Vecs {
         Ok(())
     }
 
-    /// Get the current length of the target vec (to determine where to resume).
+    fn starting_day1_for_target(&self, target: SeriesTarget, starting_day1: Day1) -> Day1 {
+        starting_day1.min(Day1::from(self.vec_len_for_target(target)))
+    }
+
     fn vec_len_for_target(&self, target: SeriesTarget) -> usize {
         match target {
-            SeriesTarget::InterestRates(f) => match f {
+            SeriesTarget::InterestRates(field) => match field {
                 InterestRateField::FedFundsRate => self.interest_rates.fed_funds_rate.len(),
                 InterestRateField::TreasuryYield2y => self.interest_rates.treasury_yield_2y.len(),
                 InterestRateField::TreasuryYield10y => self.interest_rates.treasury_yield_10y.len(),
                 InterestRateField::TreasuryYield30y => self.interest_rates.treasury_yield_30y.len(),
             },
-            SeriesTarget::MoneySupply(f) => match f {
+            SeriesTarget::MoneySupply(field) => match field {
                 MoneySupplyField::M1 => self.money_supply.m1.len(),
                 MoneySupplyField::M2 => self.money_supply.m2.len(),
             },
-            SeriesTarget::Employment(f) => match f {
+            SeriesTarget::Employment(field) => match field {
                 EmploymentField::UnemploymentRate => self.employment.unemployment_rate.len(),
                 EmploymentField::InitialClaims => self.employment.initial_claims.len(),
                 EmploymentField::NonfarmPayrolls => self.employment.nonfarm_payrolls.len(),
             },
-            SeriesTarget::Inflation(f) => match f {
+            SeriesTarget::Inflation(field) => match field {
                 InflationField::Cpi => self.inflation.cpi.len(),
                 InflationField::CoreCpi => self.inflation.core_cpi.len(),
                 InflationField::Pce => self.inflation.pce.len(),
                 InflationField::CorePce => self.inflation.core_pce.len(),
                 InflationField::Ppi => self.inflation.ppi.len(),
             },
-            SeriesTarget::Growth(f) => match f {
+            SeriesTarget::Growth(field) => match field {
                 GrowthField::Gdp => self.growth.gdp.len(),
                 GrowthField::ConsumerConfidence => self.growth.consumer_confidence.len(),
                 GrowthField::RetailSales => self.growth.retail_sales.len(),
             },
-            SeriesTarget::Commodities(f) => match f {
+            SeriesTarget::Commodities(field) => match field {
                 CommodityField::GoldPrice => self.commodities.gold_price.len(),
                 CommodityField::SilverPrice => self.commodities.silver_price.len(),
                 CommodityField::OilWti => self.commodities.oil_wti.len(),
                 CommodityField::OilBrent => self.commodities.oil_brent.len(),
             },
-            SeriesTarget::Other(f) => match f {
+            SeriesTarget::Other(field) => match field {
                 OtherField::Vix => self.other.vix.len(),
                 OtherField::DollarIndex => self.other.dollar_index.len(),
                 OtherField::FedBalanceSheet => self.other.fed_balance_sheet.len(),
@@ -307,52 +272,61 @@ impl Vecs {
         }
     }
 
-    /// Push forward-filled values into the appropriate vec.
     fn push_filled_values(
         &mut self,
         target: SeriesTarget,
-        filled: &[(DateIndex, StoredF32)],
-        starting_di: DateIndex,
+        filled: &[(Day1, StoredF32)],
+        starting_day1: Day1,
         exit: &Exit,
     ) -> Result<()> {
         macro_rules! push_to_vec {
             ($vec:expr) => {{
-                // Track last known value for forward-fill and zero-rejection.
-                // Initialize from the last value already in the vec (if any).
-                let mut last_known_val: StoredF32 = if $vec.len() > 0 {
-                    $vec.iter().last().unwrap_or(StoredF32::from(0.0f32))
+                let min_len = $vec.len().min(usize::from(starting_day1));
+                $vec.truncate_if_needed_at(min_len)?;
+
+                let mut last_known_val = if $vec.len() > 0 {
+                    $vec.collect_one(Day1::from($vec.len() - 1))
+                        .unwrap_or(StoredF32::from(0.0f32))
                 } else {
                     StoredF32::from(0.0f32)
                 };
 
-                // Pad with last-known values to fill any gap between
-                // the current vec length and the first dateindex we're about to push.
-                if let Some(&(first_di, _)) = filled.iter().find(|&&(di, _)| di >= starting_di) {
-                    let first_idx: usize = first_di.into();
+                if let Some(&(first_day1, _)) =
+                    filled.iter().find(|&&(day1, _)| day1 >= starting_day1)
+                {
+                    let first_idx = usize::from(first_day1);
                     let vec_len = $vec.len();
                     if first_idx > vec_len {
-                        for pad_idx in vec_len..first_idx {
-                            $vec.truncate_push_at(pad_idx, last_known_val)?;
+                        for _ in vec_len..first_idx {
+                            $vec.push(last_known_val);
                         }
                     }
                 }
-                for &(di, val) in filled {
-                    if di >= starting_di {
-                        let idx: usize = di.into();
-                        if idx <= $vec.len() {
-                            // Reject 0.0 values — forward-fill from last known instead.
-                            // Macro economy series (yields, rates, prices) should never
-                            // legitimately be exactly 0.0; it indicates missing data.
-                            let final_val = if *val == 0.0f32 && *last_known_val != 0.0f32 {
-                                last_known_val
-                            } else {
-                                val
-                            };
-                            $vec.truncate_push_at(idx, final_val)?;
+
+                for &(day1, value) in filled {
+                    if day1 >= starting_day1 {
+                        let idx = usize::from(day1);
+                        if idx < $vec.len() {
+                            continue;
+                        }
+
+                        while idx > $vec.len() {
+                            $vec.push(last_known_val);
+                        }
+
+                        let final_val = if *value == 0.0f32 && *last_known_val != 0.0f32 {
+                            last_known_val
+                        } else {
+                            value
+                        };
+
+                        if idx == $vec.len() {
+                            $vec.push(final_val);
                             last_known_val = final_val;
                         }
                     }
                 }
+
                 {
                     let _lock = exit.lock();
                     $vec.write()?;
@@ -361,7 +335,7 @@ impl Vecs {
         }
 
         match target {
-            SeriesTarget::InterestRates(f) => match f {
+            SeriesTarget::InterestRates(field) => match field {
                 InterestRateField::FedFundsRate => push_to_vec!(self.interest_rates.fed_funds_rate),
                 InterestRateField::TreasuryYield2y => {
                     push_to_vec!(self.interest_rates.treasury_yield_2y)
@@ -373,38 +347,36 @@ impl Vecs {
                     push_to_vec!(self.interest_rates.treasury_yield_30y)
                 }
             },
-            SeriesTarget::MoneySupply(f) => match f {
+            SeriesTarget::MoneySupply(field) => match field {
                 MoneySupplyField::M1 => push_to_vec!(self.money_supply.m1),
                 MoneySupplyField::M2 => push_to_vec!(self.money_supply.m2),
             },
-            SeriesTarget::Employment(f) => match f {
+            SeriesTarget::Employment(field) => match field {
                 EmploymentField::UnemploymentRate => {
                     push_to_vec!(self.employment.unemployment_rate)
                 }
                 EmploymentField::InitialClaims => push_to_vec!(self.employment.initial_claims),
-                EmploymentField::NonfarmPayrolls => {
-                    push_to_vec!(self.employment.nonfarm_payrolls)
-                }
+                EmploymentField::NonfarmPayrolls => push_to_vec!(self.employment.nonfarm_payrolls),
             },
-            SeriesTarget::Inflation(f) => match f {
+            SeriesTarget::Inflation(field) => match field {
                 InflationField::Cpi => push_to_vec!(self.inflation.cpi),
                 InflationField::CoreCpi => push_to_vec!(self.inflation.core_cpi),
                 InflationField::Pce => push_to_vec!(self.inflation.pce),
                 InflationField::CorePce => push_to_vec!(self.inflation.core_pce),
                 InflationField::Ppi => push_to_vec!(self.inflation.ppi),
             },
-            SeriesTarget::Growth(f) => match f {
+            SeriesTarget::Growth(field) => match field {
                 GrowthField::Gdp => push_to_vec!(self.growth.gdp),
                 GrowthField::ConsumerConfidence => push_to_vec!(self.growth.consumer_confidence),
                 GrowthField::RetailSales => push_to_vec!(self.growth.retail_sales),
             },
-            SeriesTarget::Commodities(f) => match f {
+            SeriesTarget::Commodities(field) => match field {
                 CommodityField::GoldPrice => push_to_vec!(self.commodities.gold_price),
                 CommodityField::SilverPrice => push_to_vec!(self.commodities.silver_price),
                 CommodityField::OilWti => push_to_vec!(self.commodities.oil_wti),
                 CommodityField::OilBrent => push_to_vec!(self.commodities.oil_brent),
             },
-            SeriesTarget::Other(f) => match f {
+            SeriesTarget::Other(field) => match field {
                 OtherField::Vix => push_to_vec!(self.other.vix),
                 OtherField::DollarIndex => push_to_vec!(self.other.dollar_index),
                 OtherField::FedBalanceSheet => push_to_vec!(self.other.fed_balance_sheet),
@@ -417,72 +389,50 @@ impl Vecs {
     }
 }
 
-/// Build a Date → DateIndex lookup from the dateindex.date vec.
-fn build_date_to_dateindex(
-    date_vec: &vecdb::EagerVec<vecdb::PcoVec<DateIndex, Date>>,
-) -> Result<BTreeMap<Date, DateIndex>> {
+fn start_date_for_day1(day1: Day1) -> Option<Date> {
+    (usize::from(day1) > 0).then(|| Date::from(Day1::from(usize::from(day1).saturating_sub(1))))
+}
+
+fn build_date_to_day1(date_vec: &impl ReadableVec<Day1, Date>) -> Result<BTreeMap<Date, Day1>> {
     let mut map = BTreeMap::new();
-    let iter = date_vec.iter();
-    for (i, date) in iter.enumerate() {
-        map.insert(date, i.into());
+    for index in 0..date_vec.len() {
+        let day1 = Day1::from(index);
+        if let Some(date) = date_vec.collect_one(day1) {
+            map.insert(date, day1);
+        }
     }
     Ok(map)
 }
 
-/// Forward-fill FRED observations into a DateIndex-aligned series.
-///
-/// For each DateIndex in [0..total_dateindexes), we find the most recent
-/// FRED observation that falls on or before the corresponding date.
-/// This handles monthly/weekly/quarterly data by repeating the last known
-/// value for every day until the next observation.
-///
-/// Returns (DateIndex, StoredF32) pairs only for dateindexes that have a value
-/// (i.e., after the first observation in the FRED series).
 fn forward_fill(
     observations: &BTreeMap<Date, f32>,
-    date_to_dateindex: &BTreeMap<Date, DateIndex>,
-    _date_vec: &vecdb::EagerVec<vecdb::PcoVec<DateIndex, Date>>,
-    total_dateindexes: usize,
-) -> Result<Vec<(DateIndex, StoredF32)>> {
+    date_to_day1: &BTreeMap<Date, Day1>,
+    total_day1s: usize,
+) -> Vec<(Day1, StoredF32)> {
     let mut result = Vec::new();
-
-    // Convert FRED observations to (DateIndex, f32) where possible.
-    // Some FRED dates may be before the first Bitcoin block (2009-01-03),
-    // so they won't have a DateIndex — we skip those but remember the value
-    // for forward-fill purposes.
-    let mut obs_by_dateindex: BTreeMap<DateIndex, f32> = BTreeMap::new();
-    let mut earliest_value: Option<f32> = None;
+    let mut observations_by_day1 = BTreeMap::new();
+    let mut earliest_value = None;
 
     for (&date, &value) in observations {
-        if let Some(&di) = date_to_dateindex.get(&date) {
-            // Skip zero values from FRED — these indicate missing/holiday data
+        if let Some(&day1) = date_to_day1.get(&date) {
             if value != 0.0 {
-                obs_by_dateindex.insert(di, value);
+                observations_by_day1.insert(day1, value);
             }
         } else {
-            // This observation is before the first DateIndex or doesn't match exactly.
-            // Keep track of values before the indexed range for forward-fill.
-            // Use the most recent pre-index value.
             earliest_value = Some(value);
         }
     }
 
-    // Forward-fill through all dateindexes
-    let mut current_value: Option<f32> = earliest_value;
-
-    for i in 0..total_dateindexes {
-        let di = DateIndex::from(i);
-
-        // Check if there's a new observation at this dateindex
-        if let Some(&obs_val) = obs_by_dateindex.get(&di) {
-            current_value = Some(obs_val);
+    let mut current_value = earliest_value;
+    for index in 0..total_day1s {
+        let day1 = Day1::from(index);
+        if let Some(&observation) = observations_by_day1.get(&day1) {
+            current_value = Some(observation);
         }
-
-        // If we have a value (either new or carried forward), emit it
-        if let Some(val) = current_value {
-            result.push((di, StoredF32::from(val)));
+        if let Some(value) = current_value {
+            result.push((day1, StoredF32::from(value)));
         }
     }
 
-    Ok(result)
+    result
 }

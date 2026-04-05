@@ -1,16 +1,11 @@
 use brk_traversable::Traversable;
-use brk_types::{DateIndex, StoredF32};
-use vecdb::{EagerVec, PcoVec};
+use brk_types::{Day1, StoredF32};
+use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
-/// Commodity prices from Yahoo Finance
-#[derive(Clone, Traversable)]
-pub struct Vecs {
-    /// GC=F - Gold Futures, USD per Troy Ounce (daily)
-    pub gold_price: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// SI=F - Silver Futures, USD per Troy Ounce (daily)
-    pub silver_price: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// CL=F - WTI Crude Oil Futures, USD per Barrel (daily)
-    pub oil_wti: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// BZ=F - Brent Crude Oil Futures, USD per Barrel (daily)
-    pub oil_brent: EagerVec<PcoVec<DateIndex, StoredF32>>,
+#[derive(Traversable)]
+pub struct Vecs<M: StorageMode = Rw> {
+    pub gold_price: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub silver_price: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub oil_wti: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub oil_brent: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
 }

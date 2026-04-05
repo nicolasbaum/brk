@@ -57,10 +57,10 @@ impl IoMonitor {
                 if let Some(value_str) = line.split_whitespace().nth(1) {
                     read_bytes = value_str.parse::<u64>().ok();
                 }
-            } else if line.starts_with("write_bytes:") {
-                if let Some(value_str) = line.split_whitespace().nth(1) {
-                    write_bytes = value_str.parse::<u64>().ok();
-                }
+            } else if line.starts_with("write_bytes:")
+                && let Some(value_str) = line.split_whitespace().nth(1)
+            {
+                write_bytes = value_str.parse::<u64>().ok();
             }
         }
 

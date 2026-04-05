@@ -54,17 +54,16 @@ impl MemoryMonitor {
 
         for line in status_content.lines() {
             if line.starts_with("VmRSS:") {
-                if let Some(value_str) = line.split_whitespace().nth(1) {
-                    if let Ok(kb) = value_str.parse::<u64>() {
-                        vm_rss = Some(kb * 1024); // KiB to bytes
-                    }
+                if let Some(value_str) = line.split_whitespace().nth(1)
+                    && let Ok(kb) = value_str.parse::<u64>()
+                {
+                    vm_rss = Some(kb * 1024); // KiB to bytes
                 }
-            } else if line.starts_with("VmHWM:") {
-                if let Some(value_str) = line.split_whitespace().nth(1) {
-                    if let Ok(kb) = value_str.parse::<u64>() {
-                        vm_hwm = Some(kb * 1024); // KiB to bytes
-                    }
-                }
+            } else if line.starts_with("VmHWM:")
+                && let Some(value_str) = line.split_whitespace().nth(1)
+                && let Ok(kb) = value_str.parse::<u64>()
+            {
+                vm_hwm = Some(kb * 1024); // KiB to bytes
             }
         }
 

@@ -250,10 +250,10 @@ impl Config {
             "    Edit {} to persist settings:",
             "~/.brk/config.toml".bright_black()
         );
-        println!("    {}", "brkdir = "/path/to/data"".bright_black());
+        println!("    {}", "brkdir = \"/path/to/data\"".bright_black());
         println!(
             "    {}",
-            "bitcoindir = "/path/to/.bitcoin"".bright_black()
+            "bitcoindir = \"/path/to/.bitcoin\"".bright_black()
         );
     }
 
@@ -379,9 +379,8 @@ Finally, you can run the program with '-h' for help."
     }
 
     pub fn fetcher(&self) -> Option<Fetcher> {
-        self.fetch().then(|| {
-            Fetcher::import(Some(self.harsdir().as_path()), self.fred_api_key()).unwrap()
-        })
+        self.fetch()
+            .then(|| Fetcher::import(Some(self.harsdir().as_path()), self.fred_api_key()).unwrap())
     }
 }
 

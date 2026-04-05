@@ -1,12 +1,9 @@
 use brk_traversable::Traversable;
-use brk_types::{DateIndex, StoredF32};
-use vecdb::{EagerVec, PcoVec};
+use brk_types::{Day1, StoredF32};
+use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
-/// Money supply metrics from FRED
-#[derive(Clone, Traversable)]
-pub struct Vecs {
-    /// M1SL - M1 Money Supply (monthly, billions)
-    pub m1: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// WM2NS - M2 Money Supply (weekly, billions)
-    pub m2: EagerVec<PcoVec<DateIndex, StoredF32>>,
+#[derive(Traversable)]
+pub struct Vecs<M: StorageMode = Rw> {
+    pub m1: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub m2: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
 }

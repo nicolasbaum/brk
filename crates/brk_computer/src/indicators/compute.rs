@@ -1,6 +1,6 @@
 use brk_error::Result;
 use brk_types::{Bitcoin, Dollars, Indexes, StoredF32};
-use vecdb::{AnyVec, Exit, TypedVecIterator};
+use vecdb::{AnyVec, Exit, ReadableVec};
 
 use super::{Vecs, gini};
 use crate::{distribution, internal::RatioDollarsBp32, market, mining, transactions};
@@ -94,8 +94,6 @@ impl Vecs {
             .usd
             .height;
         let version = market_cap.version() + realized_cap.version();
-        let mut market_cap_iter = market_cap.into_iter();
-        let mut realized_cap_iter = realized_cap.into_iter();
         let mut count = 0u64;
         let mut mean = 0.0f64;
         let mut m2 = 0.0f64;
@@ -105,8 +103,14 @@ impl Vecs {
             market_cap.len(),
             version,
             |height| {
-                let market_cap = f64::from(*market_cap_iter.get_or_default(height));
-                let realized_cap = f64::from(*realized_cap_iter.get_or_default(height));
+                let market_cap = market_cap
+                    .collect_one(height)
+                    .map(f64::from)
+                    .unwrap_or_default();
+                let realized_cap = realized_cap
+                    .collect_one(height)
+                    .map(f64::from)
+                    .unwrap_or_default();
                 let diff = market_cap - realized_cap;
 
                 count += 1;
@@ -119,11 +123,7 @@ impl Vecs {
                     0.0
                 } else {
                     let std_dev = (m2 / count as f64).sqrt();
-                    if std_dev == 0.0 {
-                        0.0
-                    } else {
-                        diff / std_dev
-                    }
+                    if std_dev == 0.0 { 0.0 } else { diff / std_dev }
                 };
 
                 (height, StoredF32::from(z_score as f32))

@@ -1,3 +1,5 @@
+use std::io::Read as _;
+
 use std::collections::BTreeMap;
 
 use brk_error::{Error, Result};
@@ -6,7 +8,7 @@ use serde_json::Value;
 use tracing::info;
 use ureq::Agent;
 
-use crate::{checked_get, default_retry, new_agent};
+use crate::{default_retry, new_agent};
 
 /// Yahoo Finance series definitions for commodities and indices.
 pub const YAHOO_SERIES: &[YahooSeries] = &[
@@ -68,10 +70,7 @@ impl Yahoo {
 
             info!("Fetching Yahoo Finance {symbol}...");
             let bytes = {
-                let mut response = agent
-                    .get(&url)
-                    .header("User-Agent", "Mozilla/5.0")
-                    .call()?;
+                let mut response = agent.get(&url).header("User-Agent", "Mozilla/5.0").call()?;
                 let status = response.status().as_u16();
                 if status >= 400 {
                     return Err(Error::HttpStatus {
@@ -148,7 +147,11 @@ fn date_to_unix(date: Date) -> i64 {
 }
 
 fn unix_to_date(ts: i64) -> Date {
-    let days = if ts >= 0 { ts / 86_400 } else { (ts - 86_399) / 86_400 };
+    let days = if ts >= 0 {
+        ts / 86_400
+    } else {
+        (ts - 86_399) / 86_400
+    };
     let z = days + 719468;
     let era = if z >= 0 { z } else { z - 146096 } / 146097;
     let doe = (z - era * 146097) as u32;

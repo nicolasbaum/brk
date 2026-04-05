@@ -251,7 +251,6 @@ impl Query {
         let fa_pct90 = fad.pct90.height.collect_range_at(begin, end);
         let fa_max = fad.max.height.collect_range_at(begin, end);
 
-
         // Bulk read median time window
         let median_start = begin.saturating_sub(10);
         let median_timestamps = indexer
@@ -516,7 +515,14 @@ impl Query {
         position: BlkPosition,
         len: usize,
     ) -> (String, Option<String>, Vec<String>, String, String, Vec<u8>) {
-        let empty = (String::new(), None, vec![], String::new(), String::new(), vec![]);
+        let empty = (
+            String::new(),
+            None,
+            vec![],
+            String::new(),
+            String::new(),
+            vec![],
+        );
         let raw_bytes = match reader.read_raw_bytes(position, len) {
             Ok(bytes) => bytes,
             Err(_) => return empty,
@@ -535,10 +541,7 @@ impl Query {
 
         let coinbase_raw = scriptsig_bytes.to_lower_hex_string();
 
-        let coinbase_signature_ascii: String = scriptsig_bytes
-            .iter()
-            .map(|&b| b as char)
-            .collect();
+        let coinbase_signature_ascii: String = scriptsig_bytes.iter().map(|&b| b as char).collect();
 
         let coinbase_addresses: Vec<String> = tx
             .output

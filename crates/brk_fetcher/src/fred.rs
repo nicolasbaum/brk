@@ -84,9 +84,8 @@ impl Fred {
         let series_id = series_id.to_string();
 
         default_retry(move |_| {
-            let mut url = format!(
-                "{FRED_BASE_URL}?series_id={series_id}&api_key={api_key}&file_type=json"
-            );
+            let mut url =
+                format!("{FRED_BASE_URL}?series_id={series_id}&api_key={api_key}&file_type=json");
 
             if let Some(date) = start_date {
                 url.push_str(&format!("&observation_start={date}"));
@@ -96,7 +95,9 @@ impl Fred {
             let bytes = checked_get(&agent, &url)?;
 
             let json: Value = serde_json::from_slice(&bytes).map_err(|e| {
-                Error::Parse(format!("Failed to parse FRED response for {series_id}: {e}"))
+                Error::Parse(format!(
+                    "Failed to parse FRED response for {series_id}: {e}"
+                ))
             })?;
 
             let observations = json
@@ -111,19 +112,13 @@ impl Fred {
             let mut result = BTreeMap::new();
 
             for obs in observations {
-                let date_str = obs
-                    .get("date")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        Error::Parse(format!("FRED observation missing 'date' for {series_id}"))
-                    })?;
+                let date_str = obs.get("date").and_then(|v| v.as_str()).ok_or_else(|| {
+                    Error::Parse(format!("FRED observation missing 'date' for {series_id}"))
+                })?;
 
-                let value_str = obs
-                    .get("value")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| {
-                        Error::Parse(format!("FRED observation missing 'value' for {series_id}"))
-                    })?;
+                let value_str = obs.get("value").and_then(|v| v.as_str()).ok_or_else(|| {
+                    Error::Parse(format!("FRED observation missing 'value' for {series_id}"))
+                })?;
 
                 if value_str == "." {
                     continue;

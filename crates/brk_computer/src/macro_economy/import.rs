@@ -3,11 +3,11 @@ use std::path::Path;
 use brk_error::Result;
 use brk_traversable::Traversable;
 use brk_types::Version;
-use vecdb::{Database, PAGE_SIZE};
+use vecdb::{AnyExportableVec, Database, PAGE_SIZE};
 
 use super::{
-    CommoditiesVecs, EmploymentVecs, GrowthVecs, InflationVecs, InterestRatesVecs,
-    MoneySupplyVecs, OtherMacroVecs, Vecs,
+    CommoditiesVecs, EmploymentVecs, GrowthVecs, InflationVecs, InterestRatesVecs, MoneySupplyVecs,
+    OtherMacroVecs, Vecs,
 };
 
 impl Vecs {
@@ -38,7 +38,7 @@ impl Vecs {
 
         this.db.retain_regions(
             this.iter_any_exportable()
-                .flat_map(|v| v.region_names())
+                .flat_map(|v: &dyn AnyExportableVec| v.region_names())
                 .collect(),
         )?;
         this.db.compact()?;

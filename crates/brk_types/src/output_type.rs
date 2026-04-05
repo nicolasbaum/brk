@@ -26,11 +26,7 @@ use crate::AddrBytes;
 #[repr(u8)]
 /// Type (P2PKH, P2WPKH, P2SH, P2TR, etc.)
 pub enum OutputType {
-    #[serde(rename = "p2pk")]
-    #[strum(serialize = "p2pk")]
     P2PK65,
-    #[serde(rename = "p2pk")]
-    #[strum(serialize = "p2pk")]
     P2PK33,
     P2PKH,
     #[serde(rename = "multisig")]

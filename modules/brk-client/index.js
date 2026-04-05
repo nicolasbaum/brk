@@ -690,7 +690,7 @@ Matches mempool.space/bitcoin-cli behavior.
 /**
  * Type (P2PKH, P2WPKH, P2SH, P2TR, etc.)
  *
- * @typedef {("p2pk"|"p2pk"|"p2pkh"|"multisig"|"p2sh"|"op_return"|"v0_p2wpkh"|"v0_p2wsh"|"v1_p2tr"|"p2a"|"empty"|"unknown")} OutputType
+ * @typedef {("p2pk65"|"p2pk33"|"p2pkh"|"multisig"|"p2sh"|"op_return"|"v0_p2wpkh"|"v0_p2wsh"|"v1_p2tr"|"p2a"|"empty"|"unknown")} OutputType
  */
 /** @typedef {TypeIndex} P2AAddrIndex */
 /** @typedef {U8x2} P2ABytes */
@@ -4356,6 +4356,7 @@ function createTransferPattern(client, acc) {
  * @property {SeriesTree_Indexes} indexes
  * @property {SeriesTree_Indicators} indicators
  * @property {SeriesTree_Investing} investing
+ * @property {SeriesTree_MacroEconomy} macroEconomy
  * @property {SeriesTree_Market} market
  * @property {SeriesTree_Pools} pools
  * @property {SeriesTree_Prices} prices
@@ -5216,6 +5217,7 @@ function createTransferPattern(client, acc) {
  * @property {BpsPercentRatioPattern3} gini
  * @property {BpsRatioPattern2} rhodlRatio
  * @property {BpsRatioPattern2} thermoCapMultiple
+ * @property {SeriesPattern1<StoredF32>} mvrvZScore
  * @property {SeriesPattern1<StoredF32>} coindaysDestroyedSupplyAdjusted
  * @property {SeriesPattern1<StoredF32>} coinyearsDestroyedSupplyAdjusted
  * @property {SeriesTree_Indicators_Dormancy} dormancy
@@ -5330,6 +5332,72 @@ function createTransferPattern(client, acc) {
  * @property {BpsPercentRatioPattern} from2024
  * @property {BpsPercentRatioPattern} from2025
  * @property {BpsPercentRatioPattern} from2026
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy
+ * @property {SeriesTree_MacroEconomy_InterestRates} interestRates
+ * @property {SeriesTree_MacroEconomy_MoneySupply} moneySupply
+ * @property {SeriesTree_MacroEconomy_Employment} employment
+ * @property {SeriesTree_MacroEconomy_Inflation} inflation
+ * @property {SeriesTree_MacroEconomy_Growth} growth
+ * @property {SeriesTree_MacroEconomy_Commodities} commodities
+ * @property {SeriesTree_MacroEconomy_Other} other
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_InterestRates
+ * @property {SeriesPattern8<StoredF32>} fedFundsRate
+ * @property {SeriesPattern8<StoredF32>} treasuryYield2y
+ * @property {SeriesPattern8<StoredF32>} treasuryYield10y
+ * @property {SeriesPattern8<StoredF32>} treasuryYield30y
+ * @property {SeriesPattern8<StoredF32>} yieldSpread10y2y
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_MoneySupply
+ * @property {SeriesPattern8<StoredF32>} m1
+ * @property {SeriesPattern8<StoredF32>} m2
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_Employment
+ * @property {SeriesPattern8<StoredF32>} unemploymentRate
+ * @property {SeriesPattern8<StoredF32>} initialClaims
+ * @property {SeriesPattern8<StoredF32>} nonfarmPayrolls
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_Inflation
+ * @property {SeriesPattern8<StoredF32>} cpi
+ * @property {SeriesPattern8<StoredF32>} coreCpi
+ * @property {SeriesPattern8<StoredF32>} pce
+ * @property {SeriesPattern8<StoredF32>} corePce
+ * @property {SeriesPattern8<StoredF32>} ppi
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_Growth
+ * @property {SeriesPattern8<StoredF32>} gdp
+ * @property {SeriesPattern8<StoredF32>} consumerConfidence
+ * @property {SeriesPattern8<StoredF32>} retailSales
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_Commodities
+ * @property {SeriesPattern8<StoredF32>} goldPrice
+ * @property {SeriesPattern8<StoredF32>} silverPrice
+ * @property {SeriesPattern8<StoredF32>} oilWti
+ * @property {SeriesPattern8<StoredF32>} oilBrent
+ */
+
+/**
+ * @typedef {Object} SeriesTree_MacroEconomy_Other
+ * @property {SeriesPattern8<StoredF32>} vix
+ * @property {SeriesPattern8<StoredF32>} dollarIndex
+ * @property {SeriesPattern8<StoredF32>} fedBalanceSheet
+ * @property {SeriesPattern8<StoredF32>} sp500
+ * @property {SeriesPattern8<StoredF32>} fundingRate
  */
 
 /**
@@ -8349,6 +8417,7 @@ class BrkClient extends BrkClientBase {
         gini: createBpsPercentRatioPattern3(this, 'gini'),
         rhodlRatio: createBpsRatioPattern2(this, 'rhodl_ratio'),
         thermoCapMultiple: createBpsRatioPattern2(this, 'thermo_cap_multiple'),
+        mvrvZScore: createSeriesPattern1(this, 'mvrv_z_score'),
         coindaysDestroyedSupplyAdjusted: createSeriesPattern1(this, 'coindays_destroyed_supply_adjusted'),
         coinyearsDestroyedSupplyAdjusted: createSeriesPattern1(this, 'coinyears_destroyed_supply_adjusted'),
         dormancy: {
@@ -8436,6 +8505,49 @@ class BrkClient extends BrkClientBase {
             from2025: createBpsPercentRatioPattern(this, 'dca_return_from_2025'),
             from2026: createBpsPercentRatioPattern(this, 'dca_return_from_2026'),
           },
+        },
+      },
+      macroEconomy: {
+        interestRates: {
+          fedFundsRate: createSeriesPattern8(this, 'fed_funds_rate'),
+          treasuryYield2y: createSeriesPattern8(this, 'treasury_yield_2y'),
+          treasuryYield10y: createSeriesPattern8(this, 'treasury_yield_10y'),
+          treasuryYield30y: createSeriesPattern8(this, 'treasury_yield_30y'),
+          yieldSpread10y2y: createSeriesPattern8(this, 'yield_spread_10y_2y'),
+        },
+        moneySupply: {
+          m1: createSeriesPattern8(this, 'm1'),
+          m2: createSeriesPattern8(this, 'm2'),
+        },
+        employment: {
+          unemploymentRate: createSeriesPattern8(this, 'unemployment_rate'),
+          initialClaims: createSeriesPattern8(this, 'initial_claims'),
+          nonfarmPayrolls: createSeriesPattern8(this, 'nonfarm_payrolls'),
+        },
+        inflation: {
+          cpi: createSeriesPattern8(this, 'cpi'),
+          coreCpi: createSeriesPattern8(this, 'core_cpi'),
+          pce: createSeriesPattern8(this, 'pce'),
+          corePce: createSeriesPattern8(this, 'core_pce'),
+          ppi: createSeriesPattern8(this, 'ppi'),
+        },
+        growth: {
+          gdp: createSeriesPattern8(this, 'gdp'),
+          consumerConfidence: createSeriesPattern8(this, 'consumer_confidence'),
+          retailSales: createSeriesPattern8(this, 'retail_sales'),
+        },
+        commodities: {
+          goldPrice: createSeriesPattern8(this, 'gold_price'),
+          silverPrice: createSeriesPattern8(this, 'silver_price'),
+          oilWti: createSeriesPattern8(this, 'oil_wti'),
+          oilBrent: createSeriesPattern8(this, 'oil_brent'),
+        },
+        other: {
+          vix: createSeriesPattern8(this, 'vix'),
+          dollarIndex: createSeriesPattern8(this, 'dollar_index'),
+          fedBalanceSheet: createSeriesPattern8(this, 'fed_balance_sheet'),
+          sp500: createSeriesPattern8(this, 'sp500'),
+          fundingRate: createSeriesPattern8(this, 'funding_rate'),
         },
       },
       market: {

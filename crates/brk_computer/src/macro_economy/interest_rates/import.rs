@@ -1,9 +1,20 @@
 use brk_error::Result;
 use brk_types::Version;
-use vecdb::{Database, EagerVec, ImportableVec, IterableCloneableVec, LazyVecFrom2};
+use vecdb::{
+    BinaryTransform, Database, EagerVec, ImportableVec, LazyVecFrom2, ReadableCloneableVec,
+};
 
 use super::Vecs;
-use crate::internal::DifferenceF32;
+use brk_types::StoredF32;
+
+struct DifferenceF32;
+
+impl BinaryTransform<StoredF32, StoredF32, StoredF32> for DifferenceF32 {
+    #[inline(always)]
+    fn apply(value: StoredF32, base: StoredF32) -> StoredF32 {
+        StoredF32::from(*value - *base)
+    }
+}
 
 const VERSION: Version = Version::ZERO;
 
@@ -19,8 +30,8 @@ impl Vecs {
         let yield_spread_10y_2y = LazyVecFrom2::transformed::<DifferenceF32>(
             "yield_spread_10y_2y",
             v,
-            treasury_yield_10y.boxed_clone(),
-            treasury_yield_2y.boxed_clone(),
+            treasury_yield_10y.read_only_boxed_clone(),
+            treasury_yield_2y.read_only_boxed_clone(),
         );
 
         Ok(Self {

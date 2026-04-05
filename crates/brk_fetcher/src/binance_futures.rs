@@ -50,7 +50,7 @@ impl BinanceFutures {
             }
         }
 
-        let daily_avg = all_rates
+        let daily_avg: BTreeMap<Date, f32> = all_rates
             .into_iter()
             .map(|(date, rates)| {
                 let avg = rates.iter().sum::<f32>() / rates.len() as f32;
@@ -58,7 +58,10 @@ impl BinanceFutures {
             })
             .collect();
 
-        info!("Fetched {} daily funding rate observations", daily_avg.len());
+        info!(
+            "Fetched {} daily funding rate observations",
+            daily_avg.len()
+        );
 
         Ok(daily_avg)
     }

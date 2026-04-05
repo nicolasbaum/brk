@@ -9,6 +9,7 @@ use tracing::{info, warn};
 use ureq::Agent;
 
 mod binance;
+mod binance_futures;
 mod brk;
 mod fred;
 mod kraken;
@@ -16,17 +17,16 @@ mod ohlc;
 mod retry;
 mod source;
 mod yahoo;
-mod binance_futures;
 
 pub use binance::*;
 pub use binance_futures::*;
 pub use brk::*;
 pub use fred::*;
 pub use kraken::*;
-pub use yahoo::*;
 pub use ohlc::compute_ohlc_from_range;
 use retry::*;
 pub use source::{PriceSource, TrackedSource};
+pub use yahoo::*;
 
 const MAX_RETRIES: usize = 12 * 60; // 12 hours of retrying
 

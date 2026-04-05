@@ -1,14 +1,10 @@
 use brk_traversable::Traversable;
-use brk_types::{DateIndex, StoredF32};
-use vecdb::{EagerVec, PcoVec};
+use brk_types::{Day1, StoredF32};
+use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
-/// Employment metrics from FRED
-#[derive(Clone, Traversable)]
-pub struct Vecs {
-    /// UNRATE - Unemployment Rate (monthly, %)
-    pub unemployment_rate: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// ICSA - Initial Jobless Claims (weekly)
-    pub initial_claims: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// PAYEMS - Non-farm Payrolls (monthly, thousands)
-    pub nonfarm_payrolls: EagerVec<PcoVec<DateIndex, StoredF32>>,
+#[derive(Traversable)]
+pub struct Vecs<M: StorageMode = Rw> {
+    pub unemployment_rate: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub initial_claims: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub nonfarm_payrolls: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
 }

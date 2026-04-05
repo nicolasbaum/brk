@@ -133,7 +133,7 @@ Open = Dollars
 OpReturnIndex = TypeIndex
 OutPoint = int
 # Type (P2PKH, P2WPKH, P2SH, P2TR, etc.)
-OutputType = Literal["p2pk", "p2pk", "p2pkh", "multisig", "p2sh", "op_return", "v0_p2wpkh", "v0_p2wsh", "v1_p2tr", "p2a", "empty", "unknown"]
+OutputType = Literal["p2pk65", "p2pk33", "p2pkh", "multisig", "p2sh", "op_return", "v0_p2wpkh", "v0_p2wsh", "v1_p2tr", "p2a", "empty", "unknown"]
 P2AAddrIndex = TypeIndex
 U8x2 = List[int]
 P2ABytes = U8x2
@@ -4566,6 +4566,7 @@ class SeriesTree_Indicators:
         self.gini: BpsPercentRatioPattern3 = BpsPercentRatioPattern3(client, 'gini')
         self.rhodl_ratio: BpsRatioPattern2 = BpsRatioPattern2(client, 'rhodl_ratio')
         self.thermo_cap_multiple: BpsRatioPattern2 = BpsRatioPattern2(client, 'thermo_cap_multiple')
+        self.mvrv_z_score: SeriesPattern1[StoredF32] = SeriesPattern1(client, 'mvrv_z_score')
         self.coindays_destroyed_supply_adjusted: SeriesPattern1[StoredF32] = SeriesPattern1(client, 'coindays_destroyed_supply_adjusted')
         self.coinyears_destroyed_supply_adjusted: SeriesPattern1[StoredF32] = SeriesPattern1(client, 'coinyears_destroyed_supply_adjusted')
         self.dormancy: SeriesTree_Indicators_Dormancy = SeriesTree_Indicators_Dormancy(client)
@@ -4667,6 +4668,80 @@ class SeriesTree_Investing:
         self.sats_per_day: SeriesPattern18[Sats] = SeriesPattern18(client, 'dca_sats_per_day')
         self.period: SeriesTree_Investing_Period = SeriesTree_Investing_Period(client)
         self.class_: SeriesTree_Investing_Class = SeriesTree_Investing_Class(client)
+
+class SeriesTree_MacroEconomy_InterestRates:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.fed_funds_rate: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'fed_funds_rate')
+        self.treasury_yield_2y: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'treasury_yield_2y')
+        self.treasury_yield_10y: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'treasury_yield_10y')
+        self.treasury_yield_30y: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'treasury_yield_30y')
+        self.yield_spread_10y_2y: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'yield_spread_10y_2y')
+
+class SeriesTree_MacroEconomy_MoneySupply:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.m1: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'm1')
+        self.m2: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'm2')
+
+class SeriesTree_MacroEconomy_Employment:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.unemployment_rate: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'unemployment_rate')
+        self.initial_claims: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'initial_claims')
+        self.nonfarm_payrolls: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'nonfarm_payrolls')
+
+class SeriesTree_MacroEconomy_Inflation:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.cpi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'cpi')
+        self.core_cpi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'core_cpi')
+        self.pce: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'pce')
+        self.core_pce: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'core_pce')
+        self.ppi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'ppi')
+
+class SeriesTree_MacroEconomy_Growth:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.gdp: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'gdp')
+        self.consumer_confidence: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'consumer_confidence')
+        self.retail_sales: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'retail_sales')
+
+class SeriesTree_MacroEconomy_Commodities:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.gold_price: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'gold_price')
+        self.silver_price: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'silver_price')
+        self.oil_wti: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'oil_wti')
+        self.oil_brent: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'oil_brent')
+
+class SeriesTree_MacroEconomy_Other:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.vix: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'vix')
+        self.dollar_index: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'dollar_index')
+        self.fed_balance_sheet: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'fed_balance_sheet')
+        self.sp500: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'sp500')
+        self.funding_rate: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'funding_rate')
+
+class SeriesTree_MacroEconomy:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClientBase, base_path: str = ''):
+        self.interest_rates: SeriesTree_MacroEconomy_InterestRates = SeriesTree_MacroEconomy_InterestRates(client)
+        self.money_supply: SeriesTree_MacroEconomy_MoneySupply = SeriesTree_MacroEconomy_MoneySupply(client)
+        self.employment: SeriesTree_MacroEconomy_Employment = SeriesTree_MacroEconomy_Employment(client)
+        self.inflation: SeriesTree_MacroEconomy_Inflation = SeriesTree_MacroEconomy_Inflation(client)
+        self.growth: SeriesTree_MacroEconomy_Growth = SeriesTree_MacroEconomy_Growth(client)
+        self.commodities: SeriesTree_MacroEconomy_Commodities = SeriesTree_MacroEconomy_Commodities(client)
+        self.other: SeriesTree_MacroEconomy_Other = SeriesTree_MacroEconomy_Other(client)
 
 class SeriesTree_Market_Ath:
     """Series tree node."""
@@ -6024,6 +6099,7 @@ class SeriesTree:
         self.indexes: SeriesTree_Indexes = SeriesTree_Indexes(client)
         self.indicators: SeriesTree_Indicators = SeriesTree_Indicators(client)
         self.investing: SeriesTree_Investing = SeriesTree_Investing(client)
+        self.macro_economy: SeriesTree_MacroEconomy = SeriesTree_MacroEconomy(client)
         self.market: SeriesTree_Market = SeriesTree_Market(client)
         self.pools: SeriesTree_Pools = SeriesTree_Pools(client)
         self.prices: SeriesTree_Prices = SeriesTree_Prices(client)

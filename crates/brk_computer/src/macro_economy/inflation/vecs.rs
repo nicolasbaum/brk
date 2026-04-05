@@ -1,18 +1,12 @@
 use brk_traversable::Traversable;
-use brk_types::{DateIndex, StoredF32};
-use vecdb::{EagerVec, PcoVec};
+use brk_types::{Day1, StoredF32};
+use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
-/// Inflation metrics from FRED
-#[derive(Clone, Traversable)]
-pub struct Vecs {
-    /// CPIAUCSL - CPI (monthly, index)
-    pub cpi: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// CPILFESL - Core CPI (monthly, index)
-    pub core_cpi: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// PCEPI - PCE Price Index (monthly, index)
-    pub pce: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// PCEPILFE - Core PCE (monthly, index)
-    pub core_pce: EagerVec<PcoVec<DateIndex, StoredF32>>,
-    /// PPIACO - PPI All Commodities (monthly, index)
-    pub ppi: EagerVec<PcoVec<DateIndex, StoredF32>>,
+#[derive(Traversable)]
+pub struct Vecs<M: StorageMode = Rw> {
+    pub cpi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub core_cpi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub pce: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub core_pce: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub ppi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
 }

@@ -40,7 +40,7 @@ pub struct Computer<M: StorageMode = Rw> {
     pub indexes: Box<indexes::Vecs<M>>,
     pub indicators: Box<indicators::Vecs<M>>,
     pub investing: Box<investing::Vecs<M>>,
-    pub macro_economy: Option<Box<macro_economy::Vecs>>,
+    pub macro_economy: Box<macro_economy::Vecs<M>>,
     pub market: Box<market::Vecs<M>>,
     pub pools: Box<pools::Vecs<M>>,
     pub prices: Box<prices::Vecs<M>>,
@@ -237,13 +237,9 @@ impl Computer {
         })?;
 
         let fred = fetcher.and_then(|fetcher| fetcher.fred);
-        let macro_economy = if fred.is_some() {
-            Some(Box::new(timed("Imported macro economy", || {
-                macro_economy::Vecs::forced_import(&computed_path, VERSION)
-            })?))
-        } else {
-            None
-        };
+        let macro_economy = Box::new(timed("Imported macro economy", || {
+            macro_economy::Vecs::forced_import(&computed_path, VERSION)
+        })?);
 
         info!("Total import time: {:?}", import_start.elapsed());
 
@@ -331,9 +327,10 @@ impl Computer {
             self.indexes.compute(indexer, starting_indexes, exit)
         })?;
 
-        if let (Some(macro_economy), Some(fred)) = (self.macro_economy.as_mut(), self.fred.as_ref()) {
+        if let Some(fred) = self.fred.as_ref() {
             timed("Computed macro economy", || {
-                macro_economy.compute(fred, &self.indexes, &starting_indexes, exit)
+                self.macro_economy
+                    .compute(fred, &self.indexes, &starting_indexes, exit)
             })?;
         }
 
