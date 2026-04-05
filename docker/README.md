@@ -22,7 +22,7 @@
 3. **Access BRK**
    - Web interface: http://localhost:7070
    - API: http://localhost:7070/api
-   - Health check: http://localhost:7070/health
+   - Sync status: http://localhost:7070/api/server/sync
 
 ## Configuration
 
@@ -35,21 +35,16 @@ These variables are interpolated into `docker-compose.yml` at startup:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `BITCOIN_DATA_DIR` | Path to Bitcoin Core data directory | - |
-| `BTC_RPC_HOST` | Bitcoin Core RPC host | `localhost` |
-| `BTC_RPC_USER` | Bitcoin RPC username | `bitcoin` |
-| `BTC_RPC_PASSWORD` | Bitcoin RPC password | `bitcoin` |
+| `BTC_RPC_HOST` | Bitcoin Core RPC host reachable from the container | `host.docker.internal` |
 | `BRK_DATA_VOLUME` | Docker volume name for BRK data | `brk-data` |
 
 ### Connecting to Bitcoin Core
 
-**Cookie File Authentication (Recommended)**
-Uncomment the `--rpccookiefile` lines in `docker-compose.yml` and remove `--rpcuser`/`--rpcpassword`.
-
-**Username/Password**
-Set `BTC_RPC_USER` and `BTC_RPC_PASSWORD` in your `docker/.env` file.
+**Cookie File Authentication**
+The provided `docker-compose.yml` uses Bitcoin Core's `.cookie` file by default. Make sure `BITCOIN_DATA_DIR` points at the host Bitcoin data directory that contains `.cookie`.
 
 **Network Connectivity**
-- **Same host (Bitcoin Core running natively)**: Use `host.docker.internal` on macOS/Windows or `172.17.0.1` on Linux
+- **Same host (Bitcoin Core running natively)**: Default `host.docker.internal` works on macOS/Windows and is mapped automatically in the compose file for Linux via `host-gateway`
 - **Same host (Bitcoin Core in Docker)**: Use the service name or container IP
 - **Remote host**: Use the actual IP address or hostname
 
@@ -82,7 +77,7 @@ docker compose -f docker/docker-compose.yml logs -f
 
 ### Cannot connect to Bitcoin Core
 1. Ensure Bitcoin Core is running with `-server=1`
-2. Check RPC credentials are correct
+2. Ensure `.cookie` exists inside the mounted Bitcoin data directory
 3. Verify network connectivity from container
 
 ### Permission denied errors

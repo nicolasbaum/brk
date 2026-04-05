@@ -6,12 +6,14 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock rust-toolchain.toml ./
 COPY crates crates
+COPY modules modules
+COPY website website
 
 RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 
-RUN apt-get update && apt-get install -y ca-certificates procps && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates curl procps && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -m -s /bin/bash brk
 

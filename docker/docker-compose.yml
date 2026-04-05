@@ -10,6 +10,8 @@ services:
     restart: unless-stopped
     ports:
       - 7070:3110
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ${BITCOIN_DATA_DIR:-/path/to/bitcoin}:/bitcoin:ro
       - ${BRK_DATA_VOLUME:-brk-data}:/home/brk/.brk
@@ -23,19 +25,15 @@ services:
       - --brkdir
       - /home/brk/.brk
       - --rpcconnect
-      - "${BTC_RPC_HOST:-localhost}"
-      - --rpcuser
-      - "${BTC_RPC_USER:-bitcoin}"
-      - --rpcpassword
-      - "${BTC_RPC_PASSWORD:-bitcoin}"
-      # Cookie file alternative (uncomment and remove rpcuser/rpcpassword above):
-      # - --rpccookiefile
-      # - /bitcoin/.cookie
+      - "${BTC_RPC_HOST:-host.docker.internal}"
+      - --rpccookiefile
+      - /bitcoin/.cookie
     healthcheck:
-      test: ["CMD", "pgrep", "-x", "brk"]
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3110/api/server/sync"]
       interval: 30s
       retries: 3
-      start_period: 10s
+      start_period: 30s
+      timeout: 10s
 
 volumes:
   brk-data:
