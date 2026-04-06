@@ -17,6 +17,69 @@ use crate::{
     internal::{ComputedVecValue, NumericValue, PerResolution, cache_wrap},
 };
 
+/// Sparse aggregation strategy that tolerates stale mappings which may briefly
+/// point past the currently available source length during recomputation.
+pub struct SafeSparse;
+
+impl<T: VecValue, SI: VecIndex> AggFold<Option<T>, SI, SI, T> for SafeSparse {
+    #[inline]
+    fn try_fold<S: ReadableVec<SI, T> + ?Sized, B, E, F: FnMut(B, Option<T>) -> Result<B, E>>(
+        source: &S,
+        mapping: &[SI],
+        from: usize,
+        to: usize,
+        init: B,
+        mut f: F,
+    ) -> Result<B, E> {
+        let source_len = source.len();
+
+        let mut indices: Vec<usize> = Vec::with_capacity(to - from);
+        let mut slot_map: Vec<Option<u32>> = Vec::with_capacity(to - from);
+
+        (from..to).for_each(|idx| {
+            let current_first = mapping[idx].to_usize().min(source_len);
+            let next_first = mapping
+                .get(idx + 1)
+                .map(|h| h.to_usize().min(source_len))
+                .unwrap_or(source_len);
+
+            if next_first == 0 || current_first >= next_first {
+                slot_map.push(None);
+            } else {
+                slot_map.push(Some(indices.len() as u32));
+                indices.push(next_first - 1);
+            }
+        });
+
+        let values = source.read_sorted_at(&indices);
+
+        slot_map.iter().try_fold(init, |acc, slot| match slot {
+            None => f(acc, None),
+            &Some(vi) => f(acc, values.get(vi as usize).cloned()),
+        })
+    }
+
+    #[inline]
+    fn collect_one<S: ReadableVec<SI, T> + ?Sized>(
+        source: &S,
+        mapping: &[SI],
+        index: usize,
+    ) -> Option<Option<T>> {
+        let source_len = source.len();
+        let current_first = mapping[index].to_usize().min(source_len);
+        let next_first = mapping
+            .get(index + 1)
+            .map(|h| h.to_usize().min(source_len))
+            .unwrap_or(source_len);
+
+        if next_first == 0 || current_first >= next_first {
+            return Some(None);
+        }
+
+        Some(source.collect_one_at(next_first - 1))
+    }
+}
+
 /// Aggregation strategy for epoch-based indices (Halving, Epoch).
 ///
 /// Uses `FromCoarserIndex::max_from` to compute the target height for each
@@ -68,19 +131,19 @@ where
 pub struct Resolutions<T>(
     #[allow(clippy::type_complexity)]
     pub  PerResolution<
-        LazyAggVec<Minute10, Option<T>, Height, Height, T>,
-        LazyAggVec<Minute30, Option<T>, Height, Height, T>,
-        LazyAggVec<Hour1, Option<T>, Height, Height, T>,
-        LazyAggVec<Hour4, Option<T>, Height, Height, T>,
-        LazyAggVec<Hour12, Option<T>, Height, Height, T>,
-        LazyAggVec<Day1, Option<T>, Height, Height, T>,
-        LazyAggVec<Day3, Option<T>, Height, Height, T>,
-        LazyAggVec<Week1, Option<T>, Height, Height, T>,
-        LazyAggVec<Month1, Option<T>, Height, Height, T>,
-        LazyAggVec<Month3, Option<T>, Height, Height, T>,
-        LazyAggVec<Month6, Option<T>, Height, Height, T>,
-        LazyAggVec<Year1, Option<T>, Height, Height, T>,
-        LazyAggVec<Year10, Option<T>, Height, Height, T>,
+        LazyAggVec<Minute10, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Minute30, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Hour1, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Hour4, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Hour12, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Day1, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Day3, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Week1, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Month1, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Month3, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Month6, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Year1, Option<T>, Height, Height, T, SafeSparse>,
+        LazyAggVec<Year10, Option<T>, Height, Height, T, SafeSparse>,
         LazyAggVec<Halving, T, Height, Halving, T, CoarserIndex<Halving>>,
         LazyAggVec<Epoch, T, Height, Epoch, T, CoarserIndex<Epoch>>,
     >,

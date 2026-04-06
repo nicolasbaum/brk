@@ -758,6 +758,7 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "strum",
+ "tracing",
  "vecdb",
 ]
 

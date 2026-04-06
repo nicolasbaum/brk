@@ -7,7 +7,7 @@ use brk_fetcher::Fetcher;
 use brk_indexer::Indexer;
 use brk_traversable::Traversable;
 use brk_types::Version;
-use tracing::info;
+use tracing::{error, info};
 use vecdb::{AnyExportableVec, Exit, Ro, Rw, StorageMode};
 
 mod blocks;
@@ -421,30 +421,54 @@ impl Computer {
         let starting_indexes_clone = starting_indexes.clone();
         thread::scope(|scope| -> Result<()> {
             let pools = scope.spawn(|| {
-                timed("Computed pools", || {
-                    self.pools.compute(
-                        indexer,
-                        &self.indexes,
-                        &self.blocks,
-                        &self.prices,
-                        &self.mining,
-                        &starting_indexes_clone,
-                        exit,
-                    )
-                })
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    timed("Computed pools", || {
+                        self.pools.compute(
+                            indexer,
+                            &self.indexes,
+                            &self.blocks,
+                            &self.prices,
+                            &self.mining,
+                            &starting_indexes_clone,
+                            exit,
+                        )
+                    })
+                }));
+
+                match result {
+                    Ok(result) => result,
+                    Err(_) => {
+                        error!(
+                            "Pools computation panicked; continuing without refreshed pool data"
+                        );
+                        Ok(())
+                    }
+                }
             });
 
             let investing = scope.spawn(|| {
-                timed("Computed investing", || {
-                    self.investing.compute(
-                        &self.indexes,
-                        &self.prices,
-                        &self.blocks,
-                        &self.market.lookback,
-                        &starting_indexes_clone,
-                        exit,
-                    )
-                })
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    timed("Computed investing", || {
+                        self.investing.compute(
+                            &self.indexes,
+                            &self.prices,
+                            &self.blocks,
+                            &self.market.lookback,
+                            &starting_indexes_clone,
+                            exit,
+                        )
+                    })
+                }));
+
+                match result {
+                    Ok(result) => result,
+                    Err(_) => {
+                        error!(
+                            "Investing computation panicked; continuing without refreshed investing data"
+                        );
+                        Ok(())
+                    }
+                }
             });
 
             timed("Computed distribution", || {

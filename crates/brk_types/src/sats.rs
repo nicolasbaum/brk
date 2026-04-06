@@ -7,6 +7,7 @@ use bitcoin::Amount;
 use derive_more::Deref;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use tracing::warn;
 use vecdb::{CheckedSub, Formattable, Pco, SaturatingAdd};
 
 use crate::StoredF64;
@@ -134,7 +135,8 @@ impl SaturatingAdd for Sats {
 impl SubAssign for Sats {
     fn sub_assign(&mut self, rhs: Self) {
         *self = self.checked_sub(rhs).unwrap_or_else(|| {
-            panic!("Sats underflow: {} - {} would be negative", self, rhs);
+            warn!("Sats underflow clamped to zero: {} - {}", self, rhs);
+            Sats::ZERO
         });
     }
 }

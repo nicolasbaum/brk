@@ -1,9 +1,10 @@
 use brk_error::Result;
 use brk_traversable::Traversable;
 use brk_types::{Height, Indexes, Timestamp, Version};
+use tracing::warn;
 use vecdb::{
     AnyVec, CachedVec, Cursor, Database, EagerVec, Exit, ImportableVec, PcoVec, ReadableVec, Rw,
-    StorageMode, VecIndex,
+    StorageMode, VecIndex, WritableVec,
 };
 
 use crate::{
@@ -324,9 +325,35 @@ impl Vecs {
         D: Fn(Timestamp, Timestamp) -> bool,
     {
         let field = get_field(self);
-        let resume_from = field.len().min(starting_indexes.height.to_usize());
+        let mut resume_from = field.len().min(starting_indexes.height.to_usize());
+
+        if resume_from > 0 {
+            let last_cached_height = Height::from(resume_from - 1);
+            let cached_prev = field
+                .collect_one_at(resume_from - 1)
+                .unwrap_or(Height::ZERO);
+
+            if cached_prev > last_cached_height {
+                warn!(
+                    "Invalid cached lookback start in {} at height {}: {} > {}. Recomputing the tail.",
+                    field.name(),
+                    last_cached_height,
+                    cached_prev,
+                    last_cached_height,
+                );
+
+                field.truncate_if_needed(last_cached_height)?;
+                resume_from = field.len().min(starting_indexes.height.to_usize());
+            }
+        }
+
         let mut prev = if resume_from > 0 {
-            field.collect_one_at(resume_from - 1).unwrap()
+            let last_cached_height = Height::from(resume_from - 1);
+
+            field
+                .collect_one_at(resume_from - 1)
+                .unwrap_or(Height::ZERO)
+                .min(last_cached_height)
         } else {
             Height::ZERO
         };
@@ -337,13 +364,11 @@ impl Vecs {
             starting_indexes.height,
             &indexes.timestamp.monotonic,
             |(h, t, ..)| {
-                while expired(t, prev_ts) {
+                while prev < h && expired(t, prev_ts) {
                     prev.increment();
-                    prev_ts = cursor.next().unwrap();
-                    if prev > h {
-                        unreachable!()
-                    }
+                    prev_ts = cursor.next().unwrap_or(t);
                 }
+
                 (h, prev)
             },
             exit,

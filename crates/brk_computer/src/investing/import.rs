@@ -21,7 +21,7 @@ impl Vecs {
         indexes: &indexes::Vecs,
     ) -> Result<Self> {
         let db = open_db(parent_path, super::DB_NAME, 50_000)?;
-        let version = parent_version;
+        let version = parent_version + Version::new(1);
         let stack = ByDcaPeriod::try_new(|name, _days| {
             AmountPerBlock::forced_import(&db, &format!("dca_stack_{name}"), version, indexes)
         })?;
