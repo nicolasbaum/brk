@@ -1,5 +1,7 @@
 /** Constant helpers for creating price lines and reference lines */
 
+import { colors } from "../utils/colors.js";
+import { brk } from "../client.js";
 import { line } from "./series.js";
 
 /**
@@ -23,30 +25,14 @@ export function getConstant(constants, num) {
 
 /**
  * Create a price line series (horizontal reference line)
-<<<<<<< HEAD
-<<<<<<< HEAD
  * @param {{ number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'series'>} args
-=======
- * @param {{ number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'metric'>} args
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
- * @param {{ ctx: PartialContext, number?: number, name?: string } & Omit<(Parameters<typeof line>)[0], 'name' | 'metric'>} args
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
  */
 export function priceLine(args) {
   return line({
     ...args,
-<<<<<<< HEAD
-<<<<<<< HEAD
     series: getConstant(brk.series.constants, args.number || 0),
-=======
-    metric: getConstant(brk.metrics.constants, args.number || 0),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-    metric: getConstant(args.ctx.brk.metrics.constants, args.number || 0),
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
     name: args.name || `${args.number ?? 0}`,
-    color: args.color ?? args.ctx.colors.gray,
+    color: args.color ?? colors.gray,
     options: {
       lineStyle: args.style ?? 4,
       lastValueVisible: false,

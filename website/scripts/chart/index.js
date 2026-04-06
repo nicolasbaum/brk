@@ -7,22 +7,15 @@ import {
 } from "../modules/lightweight-charts/5.1.0/dist/lightweight-charts.standalone.production.mjs";
 import { createLegend, createSeriesLegend } from "./legend.js";
 import { capture } from "./capture.js";
-<<<<<<< HEAD
 import { colors } from "../utils/colors.js";
-<<<<<<< HEAD
 import { createRadios, createSelect, getElementById } from "../utils/dom.js";
-=======
-=======
-import { colors } from "./colors.js";
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-import { createRadios, createSelect } from "../utils/dom.js";
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 import { createPersistedValue } from "../utils/persisted.js";
 import { onChange as onThemeChange } from "../utils/theme.js";
 import { throttle, debounce } from "../utils/timing.js";
 import { serdeBool, INDEX_FROM_LABEL } from "../utils/serde.js";
 import { stringToId, numberToShortUSFormat } from "../utils/format.js";
 import { style } from "../utils/elements.js";
+import { Unit } from "../utils/units.js";
 
 /**
  * @typedef {_ISeriesApi<LCSeriesType>} ISeries
@@ -40,7 +33,6 @@ import { style } from "../utils/elements.js";
 /**
  * @template T
  * @typedef {Object} Series
- * @property {string} key
  * @property {string} id
  * @property {number} paneIndex
  * @property {PersistedValue<boolean>} active
@@ -131,6 +123,9 @@ function getRangePresets() {
 export function createChart({ parent, brk, fitContent }) {
   const baseUrl = brk.baseUrl.replace(/\/$/, "");
 
+  /** @type {string} */
+  let storageId = "";
+
   /** @param {ChartableIndex} idx */
   const getTimeEndpoint = (idx) =>
     idx === "height"
@@ -159,12 +154,10 @@ export function createChart({ parent, brk, fitContent }) {
     }),
   };
 
-<<<<<<< HEAD
   // Generation counter - incremented on any context change (index, blueprints, unit)
   // Used to detect and ignore stale operations (in-flight fetches, etc.)
   let generation = 0;
 
-<<<<<<< HEAD
   const time = {
     /** @type {SeriesData<number> | null} */
     data: null,
@@ -199,20 +192,8 @@ export function createChart({ parent, brk, fitContent }) {
 
   // Memory cache for instant index switching
   /** @type {Map<string, AnySeriesData>} */
-=======
-  // Shared time - fetched once per rebuild, all series register callbacks
-  /** @type {number[] | null} */
-  let sharedTimeData = null;
-  /** @type {Set<(data: number[]) => void>} */
-  let timeCallbacks = new Set();
-
-  // Memory cache for instant index switching
-  /** @type {Map<string, MetricData<any>>} */
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const cache = new Map();
 
-=======
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
   // Range state: localStorage stores all ranges per-index, URL stores current range only
   /** @typedef {{ from: number, to: number }} Range */
   const ranges = createPersistedValue({
@@ -269,7 +250,6 @@ export function createChart({ parent, brk, fitContent }) {
       timeScale: {
         borderVisible: false,
         enableConflation: true,
-        // conflationThresholdFactor: 8,
         ...(fitContent
           ? {
               minBarSpacing: 0.001,
@@ -305,6 +285,10 @@ export function createChart({ parent, brk, fitContent }) {
     ichart.timeScale().setVisibleLogicalRange(initialRange);
   }
 
+  // Flag to prevent range persistence until first data load completes
+  // This prevents the URL range from being overwritten during chart initialization
+  let initialLoadComplete = false;
+
   let visibleBarsCount = initialRange
     ? initialRange.to - initialRange.from
     : Infinity;
@@ -316,7 +300,6 @@ export function createChart({ parent, brk, fitContent }) {
   /** @type {Set<ZoomChangeCallback>} */
   const onZoomChange = new Set();
 
-<<<<<<< HEAD
   const debouncedSetRange = debounce((/** @type {Range | null} */ range) => {
     if (!initialLoadComplete) return;
     if (range && range.from < range.to) {
@@ -338,38 +321,6 @@ export function createChart({ parent, brk, fitContent }) {
     throttledZoom(range);
     debouncedSetRange(range);
   });
-=======
-  ichart.timeScale().subscribeVisibleLogicalRangeChange(
-    throttle((range) => {
-      if (!range) return;
-      const count = range.to - range.from;
-      if (count === visibleBarsCount) return;
-      visibleBarsCount = count;
-      onZoomChange.forEach((cb) => cb(count));
-    }, 100),
-  );
-
-  // Debounced range persistence
-<<<<<<< HEAD
-  const debouncedSetRange = debounce((/** @type {Range | null} */ range) => {
-    if (!initialLoadComplete) return; // Skip persistence during initial load
-    if (range && range.from < range.to) {
-      setRange({ from: range.from, to: range.to });
-    }
-  }, 100);
-  // Cancel pending range saves on index change to prevent saving stale ranges to wrong index
-  index.onChange.add(() => debouncedSetRange.cancel());
-  ichart.timeScale().subscribeVisibleLogicalRangeChange(debouncedSetRange);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-  ichart.timeScale().subscribeVisibleLogicalRangeChange(
-    debounce((range) => {
-      if (range && range.from < range.to) {
-        setRange({ from: range.from, to: range.to });
-      }
-    }, 100),
-  );
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
   function applyColors() {
     const defaultColor = colors.default();
@@ -510,25 +461,13 @@ export function createChart({ parent, brk, fitContent }) {
   };
 
   const serieses = {
-    /** @type {Map<string, PersistedValue<boolean>>} */
-    activeStates: new Map(),
-    /** @type {Map<string, Set<AnySeries>>} */
-    byKey: new Map(),
+    /** @type {Set<AnySeries>} */
+    all: new Set(),
 
     refreshAll() {
-<<<<<<< HEAD
-<<<<<<< HEAD
       time.fetch();
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       serieses.all.forEach((s) => {
         if (s.active.value) s.fetch?.();
-=======
-      serieses.byKey.forEach((set) => {
-        set.forEach((s) => {
-          if (s.active.value) s.fetch?.();
-        });
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
       });
     },
 
@@ -558,7 +497,6 @@ export function createChart({ parent, brk, fitContent }) {
       key: customKey,
       defaultActive,
       colors,
-      transform,
       setOrder,
       applyOptions,
       getData,
@@ -569,17 +507,12 @@ export function createChart({ parent, brk, fitContent }) {
       const key = customKey ?? stringToId(name);
       const id = `${unit.id}-${key}`;
 
-      // Reuse existing state if same name (links legends across panes, regardless of unit)
-      const existingActive = serieses.activeStates.get(key);
-      const active =
-        existingActive ??
-        createPersistedValue({
-          defaultValue: defaultActive ?? true,
-          storageKey: key,
-          urlKey: key,
-          ...serdeBool,
-        });
-      if (!existingActive) serieses.activeStates.set(key, active);
+      const active = createPersistedValue({
+        defaultValue: defaultActive ?? true,
+        storageKey: `${storageId}-p${paneIndex}-${key}`,
+        urlKey: `${paneIndex === 0 ? "t" : "b"}-${key}`,
+        ...serdeBool,
+      });
 
       setOrder(-order);
 
@@ -590,14 +523,12 @@ export function createChart({ parent, brk, fitContent }) {
       refresh();
       const removeThemeListener = onThemeChange(refresh);
 
-<<<<<<< HEAD
       const seriesGeneration = generation;
       const state = {
         hasData: false,
         lastTime: -Infinity,
         /** @type {string | null} */
         lastStamp: null,
-<<<<<<< HEAD
         /** @type {string | null} */
         lastTimeStamp: null,
         /** @type {number | null} */
@@ -642,22 +573,7 @@ export function createChart({ parent, brk, fitContent }) {
           this.lastTimeVersion = timeVersion;
           return true;
         },
-=======
-        /** @type {VoidFunction | null} */
-        fetch: null,
-        /** @type {((data: number[]) => void) | null} */
-        onTime: null,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       };
-=======
-      let hasData = false;
-      let lastTime = -Infinity;
-      /** @type {string | null} */
-      let lastStamp = null;
-
-      /** @type {VoidFunction | null} */
-      let _fetch = null;
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
       /** @type {AnySeries} */
       const series = {
@@ -665,31 +581,13 @@ export function createChart({ parent, brk, fitContent }) {
         setActive(value) {
           const wasActive = active.value;
           active.set(value);
-<<<<<<< HEAD
-<<<<<<< HEAD
           refresh();
-=======
-          value ? show() : hide();
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-          const linkedSeries = serieses.byKey.get(key);
-          linkedSeries?.forEach((s) => {
-            value ? s.show() : s.hide();
-          });
-          document.querySelectorAll(`[data-series="${key}"]`).forEach((el) => {
-            if (el instanceof HTMLInputElement && el.type === "checkbox") {
-              el.checked = value;
-            }
-          });
-          // Fetch data for ALL linked series, not just this one
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
           if (value && !wasActive) {
-            linkedSeries?.forEach((s) => s.fetch?.());
+            state.fetch?.();
           }
           panes.updateSize(paneIndex);
         },
         setOrder,
-<<<<<<< HEAD
         highlight() {
           if (highlighted) return;
           highlighted = true;
@@ -702,67 +600,28 @@ export function createChart({ parent, brk, fitContent }) {
         },
         refresh,
         generation: seriesGeneration,
-=======
-        show,
-        hide,
-        highlight,
-        tame,
-<<<<<<< HEAD
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         hasData: () => state.hasData,
         fetch: () => state.fetch?.(),
-=======
-        hasData: () => hasData,
-        fetch: () => _fetch?.(),
-        key,
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
         id,
         paneIndex,
         url: null,
         getData,
         update,
         remove() {
-<<<<<<< HEAD
-<<<<<<< HEAD
           if (state.onTime) time.callbacks.delete(state.onTime);
           removeThemeListener();
           onRemove();
           serieses.all.delete(series);
-=======
-          if (state.onTime) timeCallbacks.delete(state.onTime);
-=======
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-          onRemove();
-          serieses.byKey.get(key)?.delete(series);
-          panes.seriesByHome.get(paneIndex)?.delete(series);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         },
       };
 
-      // Register series for cross-pane linking (by name only)
-      let keySet = serieses.byKey.get(key);
-      if (!keySet) {
-        keySet = new Set();
-        serieses.byKey.set(key, keySet);
-      }
-      keySet.add(series);
+      serieses.all.add(series);
 
       /** @param {ChartableIndex} idx */
       function setupIndexEffect(idx) {
         // Reset data state for new index
-<<<<<<< HEAD
-<<<<<<< HEAD
         state.reset();
-=======
-        state.hasData = false;
-        state.lastTime = -Infinity;
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         state.fetch = null;
-=======
-        hasData = false;
-        lastTime = -Infinity;
-        _fetch = null;
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
         const _valuesEndpoint = source.by[idx];
         // Gracefully skip - source may be about to be removed by option change
@@ -787,13 +646,13 @@ export function createChart({ parent, brk, fitContent }) {
 
           // Find start index for processing
           let startIdx = 0;
-          if (hasData) {
-            // Binary search to find first index where time >= lastTime
+          if (state.hasData) {
+            // Binary search to find first index where time >= state.lastTime
             let lo = 0;
             let hi = length;
             while (lo < hi) {
               const mid = (lo + hi) >>> 1;
-              if (indexes[mid] < lastTime) {
+              if (indexes[mid] < state.lastTime) {
                 lo = mid + 1;
               } else {
                 hi = mid;
@@ -813,7 +672,7 @@ export function createChart({ parent, brk, fitContent }) {
             if (v === null) {
               return { time, value: NaN };
             } else if (typeof v === "number") {
-              return { time, value: transform ? transform(v) : v };
+              return { time, value: v };
             } else {
               if (!Array.isArray(v) || v.length !== 4)
                 throw new Error(`Expected OHLC tuple, got: ${v}`);
@@ -822,7 +681,7 @@ export function createChart({ parent, brk, fitContent }) {
             }
           }
 
-          if (!hasData) {
+          if (!state.hasData) {
             // Initial load: build full array
             const data = /** @type {LineData[] | CandlestickData[]} */ (
               Array.from({ length })
@@ -852,11 +711,11 @@ export function createChart({ parent, brk, fitContent }) {
             data.length -= timeOffset;
 
             setData(data);
-            hasData = true;
-            lastTime = /** @type {number} */ (data.at(-1)?.time) ?? -Infinity;
+            state.hasData = true;
+            state.lastTime =
+              /** @type {number} */ (data.at(-1)?.time) ?? -Infinity;
 
             // Restore saved range or use defaults
-<<<<<<< HEAD
             // RAF for Safari compatibility
             requestAnimationFrame(() => {
               if (seriesGeneration !== generation) return;
@@ -870,11 +729,7 @@ export function createChart({ parent, brk, fitContent }) {
                 ichart.timeScale().fitContent();
               } else if (
                 (minBarSpacingByIndex[idx] ?? 0) >=
-<<<<<<< HEAD
                 /** @type {number} */ (minBarSpacingByIndex.month3)
-=======
-                /** @type {number} */ (minBarSpacingByIndex.quarterindex)
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
               ) {
                 ichart
                   .timeScale()
@@ -885,58 +740,31 @@ export function createChart({ parent, brk, fitContent }) {
                 if (seriesGeneration !== generation) return;
                 initialLoadComplete = true;
                 blueprints.onDataLoaded?.();
-=======
-            const savedRange = getRange();
-            if (savedRange) {
-              ichart.timeScale().setVisibleLogicalRange({
-                from: savedRange.from,
-                to: savedRange.to,
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
               });
-            } else if (fitContent) {
-              ichart.timeScale().fitContent();
-            } else if (
-              (minBarSpacingByIndex[idx] ?? 0) >=
-              /** @type {number} */ (minBarSpacingByIndex.quarterindex)
-            ) {
-              ichart
-                .timeScale()
-                .setVisibleLogicalRange({ from: -1, to: data.length });
-            }
-            // Delay until chart has applied the range
-            requestAnimationFrame(() => blueprints.onDataLoaded?.());
+            });
           } else {
             // Incremental update: only process new data points
             for (let i = startIdx; i < length; i++) {
               const point = buildDataPoint(i);
               update(point);
-              lastTime = /** @type {number} */ (point.time);
+              state.lastTime = /** @type {number} */ (point.time);
             }
           }
         }
 
         async function fetchAndProcess() {
-<<<<<<< HEAD
-<<<<<<< HEAD
           /** @type {SeriesData<number> | null} */
-=======
-          /** @type {number[] | null} */
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           let timeData = null;
           /** @type {(number | null | [number, number, number, number])[] | null} */
           let valuesData = null;
           /** @type {string | null} */
           let valuesStamp = null;
-<<<<<<< HEAD
           /** @type {number | null} */
           let valuesVersion = null;
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
           function tryProcess() {
             if (seriesGeneration !== generation) return;
             if (!timeData || !valuesData) return;
-<<<<<<< HEAD
             if (
               !state.shouldProcess(
                 valuesStamp,
@@ -958,28 +786,11 @@ export function createChart({ parent, brk, fitContent }) {
           };
           time.callbacks.add(state.onTime);
           if (time.data) state.onTime(time.data);
-=======
-            if (valuesStamp === state.lastStamp) return;
-            state.lastStamp = valuesStamp;
-            if (timeData.length && valuesData.length) {
-              processData(timeData, valuesData);
-            }
-          }
-
-          // Register for shared time data (fetched once in rebuild)
-          state.onTime = (data) => {
-            timeData = data;
-            tryProcess();
-          };
-          timeCallbacks.add(state.onTime);
-          if (sharedTimeData) state.onTime(sharedTimeData);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
           const cachedValues = cache.get(valuesEndpoint.path);
           if (cachedValues) {
             valuesData = cachedValues.data;
             valuesStamp = cachedValues.stamp;
-<<<<<<< HEAD
             valuesVersion = cachedValues.version;
             tryProcess();
           }
@@ -988,32 +799,11 @@ export function createChart({ parent, brk, fitContent }) {
             valuesData = result.data;
             valuesStamp = result.stamp;
             valuesVersion = result.version;
-=======
-            tryProcess();
-          }
-          await valuesEndpoint.slice(-10000).fetch((result) => {
-            cache.set(valuesEndpoint.path, result);
-            valuesData = result.data;
-            valuesStamp = result.stamp;
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
             tryProcess();
           });
-=======
-          const [timeResult, valuesResult] = await Promise.all([
-            getTimeEndpoint(idx).slice(-10000).fetch(),
-            valuesEndpoint.slice(-10000).fetch(),
-          ]);
-          if (valuesResult.stamp === lastStamp) {
-            return;
-          }
-          lastStamp = valuesResult.stamp;
-          if (timeResult.data.length && valuesResult.data.length) {
-            processData(timeResult.data, valuesResult.data);
-          }
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
         }
 
-        _fetch = fetchAndProcess;
+        state.fetch = fetchAndProcess;
 
         // Initial fetch if active
         if (active.value) {
@@ -1049,17 +839,8 @@ export function createChart({ parent, brk, fitContent }) {
       defaultActive,
       options,
     }) {
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-      const seriesGeneration = generation;
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       const upColor = customColors?.[0] ?? colors.bi.p1[0];
       const downColor = customColors?.[1] ?? colors.bi.p1[1];
-=======
-      const upColor = customColors?.[0] ?? colors.green;
-      const downColor = customColors?.[1] ?? colors.red;
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
       const candlestickISeries = /** @type {CandlestickISeries} */ (
         ichart.addSeries(
@@ -1089,14 +870,6 @@ export function createChart({ parent, brk, fitContent }) {
         showLine = newShowLine;
         series.refresh();
       }
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
-      onZoomChange.add(handleZoom);
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-      const removeSeriesThemeListener = onThemeChange(update);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
       const series = serieses.create({
         colors: [upColor, downColor],
@@ -1133,22 +906,9 @@ export function createChart({ parent, brk, fitContent }) {
             cdata.map((d) => ({ time: d.time, value: d.close })),
           );
           requestAnimationFrame(() => {
-<<<<<<< HEAD
-<<<<<<< HEAD
             if (generation !== series.generation) return;
             showLine = shouldShowLine(visibleBarsCount);
             series.refresh();
-=======
-            if (seriesGeneration !== generation) return;
-            showLine = shouldShowLine(visibleBarsCount);
-=======
-            const range = ichart.timeScale().getVisibleLogicalRange();
-            if (range) {
-              showLine = shouldShowLine(range.to - range.from);
-            }
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-            update();
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           });
         },
         update: (data) => {
@@ -1164,18 +924,7 @@ export function createChart({ parent, brk, fitContent }) {
         },
       });
 
-<<<<<<< HEAD
-<<<<<<< HEAD
       onZoomChange.add(handleZoom);
-=======
-      // Add zoom handler after series is created to avoid TDZ error
-      onZoomChange.add(handleZoom);
-
-=======
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-      panes.register(paneIndex, series, [candlestickISeries, lineISeries]);
-
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       return series;
     },
     /**
@@ -1195,15 +944,8 @@ export function createChart({ parent, brk, fitContent }) {
       source,
       name,
       key,
-<<<<<<< HEAD
       color = colors.bi.p1,
-<<<<<<< HEAD
       colorFn,
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-      color = [colors.green, colors.red],
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
       order,
       unit,
       paneIndex = 0,
@@ -1293,7 +1035,6 @@ export function createChart({ parent, brk, fitContent }) {
       paneIndex = 0,
       defaultActive,
       options,
-      transform,
     }) {
       const iseries = /** @type {LineISeries} */ (
         ichart.addSeries(
@@ -1314,7 +1055,6 @@ export function createChart({ parent, brk, fitContent }) {
         unit,
         defaultActive,
         source,
-        transform,
         setOrder: (order) => iseries.setSeriesOrder(order),
         applyOptions(active, highlighted) {
           iseries.applyOptions({
@@ -1439,8 +1179,8 @@ export function createChart({ parent, brk, fitContent }) {
       unit,
       paneIndex = 0,
       defaultActive,
-      topColor = colors.green,
-      bottomColor = colors.red,
+      topColor = colors.bi.p1[0],
+      bottomColor = colors.bi.p1[1],
       options,
     }) {
       const iseries = /** @type {BaselineISeries} */ (
@@ -1598,8 +1338,6 @@ export function createChart({ parent, brk, fitContent }) {
 
   /**
    * @param {number} paneIndex
-<<<<<<< HEAD
-<<<<<<< HEAD
    * @param {IPaneApi<Time>} pane
    */
   function injectScaleSelector(paneIndex, pane) {
@@ -1636,55 +1374,6 @@ export function createChart({ parent, brk, fitContent }) {
       onChange(value) {
         persisted.set(value);
         applyScaleForUnit(paneIndex);
-=======
-=======
-   * @param {Unit} unit
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-   */
-  function applyScaleForUnit(paneIndex, unit) {
-    const id = `${chartId}-scale`;
-    const defaultValue = unit.id === "usd" ? "log" : "lin";
-
-    const persisted = createPersistedValue({
-      defaultValue: /** @type {"lin" | "log"} */ (defaultValue),
-      storageKey: `${id}-${paneIndex}-${unit.id}`,
-      urlKey: paneIndex === 0 ? "price_scale" : "unit_scale",
-      serialize: (v) => v,
-      deserialize: (s) => /** @type {"lin" | "log"} */ (s),
-    });
-
-    /** @param {"lin" | "log"} value */
-    const applyScale = (value) => {
-      panes.whenReady(paneIndex, () => {
-        try {
-          ichart
-            .panes()
-            .at(paneIndex)
-            ?.priceScale("right")
-            .applyOptions({
-              mode: value === "lin" ? 0 : 1,
-            });
-        } catch {}
-      });
-    };
-
-    applyScale(persisted.value);
-
-    fieldsets.addIfNeeded({
-      id,
-      paneIndex,
-      position: "sw",
-      createChild() {
-        return createRadios({
-          choices: /** @type {const} */ (["lin", "log"]),
-          id: stringToId(`${id} ${paneIndex}`),
-          initialValue: persisted.value,
-          onChange(value) {
-            persisted.set(value);
-            applyScale(value);
-          },
-        });
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       },
       toTitle: (c) => (c === "lin" ? "Linear scale" : "Logarithmic scale"),
     });
@@ -1724,11 +1413,9 @@ export function createChart({ parent, brk, fitContent }) {
 
       const defaultColor = unit === Unit.usd ? colors.usd : colors.bitcoin;
 
-<<<<<<< HEAD
       map.get(unit)?.forEach((blueprint, order) => {
         if (!Object.keys(blueprint.series.by).includes(idx)) return;
 
-<<<<<<< HEAD
         const common = {
           source: blueprint.series,
           name: blueprint.title,
@@ -1775,82 +1462,6 @@ export function createChart({ parent, brk, fitContent }) {
             break;
           case "Price":
             if (idx === "height" || idx.startsWith("minute")) {
-=======
-        const defaultColor = unit === Unit.usd ? colors.usd : colors.bitcoin;
-=======
-        const defaultColor = unit.id === "usd" ? colors.green : colors.orange;
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-
-        if (indexes.includes(idx)) {
-          switch (blueprint.type) {
-            case "Baseline": {
-              pane.series.push(
-                serieses.addBaseline({
-                  metric: blueprint.metric,
-                  name: blueprint.title,
-                  key: blueprint.key,
-                  defaultActive: blueprint.defaultActive,
-                  paneIndex,
-                  unit,
-                  topColor: blueprint.colors?.[0] ?? blueprint.color,
-                  bottomColor: blueprint.colors?.[1] ?? blueprint.color,
-                  options,
-                  order,
-                }),
-              );
-              break;
-            }
-            case "Histogram": {
-              pane.series.push(
-                serieses.addHistogram({
-                  metric: blueprint.metric,
-                  name: blueprint.title,
-                  key: blueprint.key,
-                  color: blueprint.color,
-                  defaultActive: blueprint.defaultActive,
-                  paneIndex,
-                  unit,
-                  options,
-                  order,
-                }),
-              );
-              break;
-            }
-            case "Candlestick": {
-              pane.series.push(
-                serieses.addCandlestick({
-                  metric: blueprint.metric,
-                  name: blueprint.title,
-                  key: blueprint.key,
-                  colors: blueprint.colors,
-                  defaultActive: blueprint.defaultActive,
-                  paneIndex,
-                  unit,
-                  options,
-                  order,
-                }),
-              );
-              break;
-            }
-            case "Dots": {
-              pane.series.push(
-                serieses.addDots({
-                  metric: blueprint.metric,
-                  color: blueprint.color ?? defaultColor,
-                  name: blueprint.title,
-                  key: blueprint.key,
-                  defaultActive: blueprint.defaultActive,
-                  paneIndex,
-                  unit,
-                  options,
-                  order,
-                }),
-              );
-              break;
-            }
-            case "Line":
-            case undefined:
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
               pane.series.push(
                 serieses.addLine({
                   ...common,
@@ -1890,51 +1501,14 @@ export function createChart({ parent, brk, fitContent }) {
 
       // Remove old series AFTER adding new ones to prevent pane collapse
       oldSeries.forEach((s) => s.remove());
-<<<<<<< HEAD
-=======
-
-<<<<<<< HEAD
-      // Store scale config - it will be applied when createForPane runs after updateVisibility
-      applyScaleForUnit(paneIndex);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     },
 
     rebuild() {
       generation++;
       initialLoadComplete = false; // Reset to prevent saving stale ranges during load
-<<<<<<< HEAD
       panes.initialized = false;
       time.setIndex(index.get());
       time.fetch();
-=======
-      const currentGen = generation;
-      const idx = index.get();
-      sharedTimeData = null;
-      timeCallbacks = new Set();
-      const timeEndpoint = getTimeEndpoint(idx);
-      const cached = cache.get(timeEndpoint.path);
-      if (cached) {
-        sharedTimeData = cached.data;
-      }
-      timeEndpoint.slice(-10000).fetch((result) => {
-        if (currentGen !== generation) return;
-        cache.set(timeEndpoint.path, result);
-        sharedTimeData = result.data;
-        timeCallbacks.forEach((cb) => cb(result.data));
-      });
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-      // Ensure other pane's series are in their correct pane before applying scale
-      // (they may have been collapsed when this pane was empty)
-      const otherPaneIndex = paneIndex === 0 ? 1 : 0;
-      panes.moveTo(otherPaneIndex, otherPaneIndex);
-
-      // Apply scale after series are created and panes are properly separated
-      applyScaleForUnit(paneIndex, unit);
-    },
-
-    rebuild() {
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
       this.rebuildPane(0);
       this.rebuildPane(1);
       requestAnimationFrame(() => panes.setup());
@@ -2024,11 +1598,13 @@ export function createChart({ parent, brk, fitContent }) {
 
     /**
      * @param {Object} args
+     * @param {string} args.name
      * @param {Map<Unit, AnyFetchedSeriesBlueprint[]>} args.top
      * @param {Map<Unit, AnyFetchedSeriesBlueprint[]>} args.bottom
      * @param {VoidFunction} [args.onDataLoaded]
      */
-    setBlueprints({ top, bottom, onDataLoaded }) {
+    setBlueprints({ name, top, bottom, onDataLoaded }) {
+      storageId = stringToId(name);
       blueprints.panes[0].map = top;
       blueprints.panes[1].map = bottom;
       blueprints.onDataLoaded = onDataLoaded;
@@ -2042,13 +1618,9 @@ export function createChart({ parent, brk, fitContent }) {
         }
 
         const defaultUnit = units[0];
-        const sortedUnitIds = units
-          .map((u) => u.id)
-          .sort()
-          .join(",");
         const persistedUnit = createPersistedValue({
           defaultValue: /** @type {string} */ (defaultUnit.id),
-          storageKey: `unit-${sortedUnitIds}`,
+          storageKey: `${storageId}-p${paneIndex}-unit`,
           urlKey: paneIndex === 0 ? "u0" : "u1",
           serialize: (v) => v,
           deserialize: (s) => s,
@@ -2059,7 +1631,6 @@ export function createChart({ parent, brk, fitContent }) {
           units.find((u) => u.id === persistedUnit.value) ?? defaultUnit;
         blueprints.panes[paneIndex].unit = initialUnit;
 
-<<<<<<< HEAD
         legends[paneIndex].setPrefix(
           createSelect({
             choices: units,
@@ -2076,34 +1647,16 @@ export function createChart({ parent, brk, fitContent }) {
             },
           }),
         );
-=======
-        fieldsets.addIfNeeded({
-          id: `${chartId}-unit`,
-          paneIndex,
-          position: "nw",
-          createChild() {
-            return createSelect({
-              choices: units,
-              id: `pane-${paneIndex}-unit`,
-              initialValue: blueprints.panes[paneIndex].unit ?? defaultUnit,
-              toKey: (u) => u.id,
-              toLabel: (u) => u.name,
-              sorted: true,
-              onChange(unit) {
-                persistedUnit.set(unit.id);
-                blueprints.panes[paneIndex].unit = unit;
-                blueprints.rebuildPane(paneIndex);
-              },
-            });
-          },
-        });
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       });
 
       blueprints.rebuild();
     },
 
     destroy() {
+      debouncedSetRange.cancel();
+      serieses.all.forEach((s) => s.remove());
+      index.onChange.clear();
+      onZoomChange.clear();
       removeThemeListener();
       clearInterval(refreshInterval);
       document.removeEventListener("visibilitychange", onVisibilityChange);

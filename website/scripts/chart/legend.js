@@ -96,19 +96,17 @@ export function createSeriesLegend() {
       }
       legends[order] = div;
 
-      const { input, label } = createLabeledInput({
+      const { label } = createLabeledInput({
         inputId: stringToId(`legend-${series.id}`),
         inputName: stringToId(`selected-${series.id}`),
         inputValue: "value",
         title: "Click to toggle",
         inputChecked: series.active.value,
-        onClick: (event) => {
-          event.preventDefault();
+        onClick: () => {
           series.setActive(!series.active.value);
         },
         type: "checkbox",
       });
-      input.dataset.series = series.key;
 
       const spanMain = window.document.createElement("span");
       spanMain.classList.add("main");
@@ -139,15 +137,7 @@ export function createSeriesLegend() {
         anchor.href = series.url;
         anchor.target = "_blank";
         anchor.rel = "noopener noreferrer";
-<<<<<<< HEAD
-<<<<<<< HEAD
         anchor.title = "Open the series data in a new tab";
-=======
-        anchor.title = "Open the metric data in a new tab";
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-        anchor.title = "Click to view data";
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
         div.append(anchor);
       }
     },

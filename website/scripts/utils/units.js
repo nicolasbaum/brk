@@ -11,22 +11,14 @@ export const Unit = /** @type {const} */ ({
 
   // Ratios & percentages
   percentage: { id: "percentage", name: "Percentage" },
+  cagr: { id: "cagr", name: "CAGR (%/year)" },
   ratio: { id: "ratio", name: "Ratio" },
   index: { id: "index", name: "Index" },
   sd: { id: "sd", name: "Std Dev" },
 
   // Relative percentages
-<<<<<<< HEAD
   pctSupply: { id: "pct-supply", name: "% of circulating" },
   pctOwn: { id: "pct-own", name: "% of Own" },
-=======
-  pctSupply: { id: "pct-supply", name: "% of circulating Supply" },
-  pctOwn: { id: "pct-own", name: "% of Own Supply" },
-  pctMcap: { id: "pct-mcap", name: "% of Market Cap" },
-  pctRcap: { id: "pct-rcap", name: "% of Realized Cap" },
-  pctOwnMcap: { id: "pct-own-mcap", name: "% of Own Market Cap" },
-  pctOwnPnl: { id: "pct-own-pnl", name: "% of Own P&L" },
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
   // Time
   days: { id: "days", name: "Days" },

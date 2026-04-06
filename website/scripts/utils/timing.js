@@ -54,12 +54,13 @@ export function throttle(callback, wait = 1000) {
  * @template {(...args: never[]) => unknown} F
  * @param {F} callback
  * @param {number} [wait]
+ * @returns {((...args: Parameters<F>) => void) & { cancel: () => void }}
  */
 export function debounce(callback, wait = 1000) {
   /** @type {number | null} */
   let timeoutId = null;
 
-  return (/** @type {Parameters<F>} */ ...args) => {
+  const fn = (/** @type {Parameters<F>} */ ...args) => {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -68,4 +69,13 @@ export function debounce(callback, wait = 1000) {
       timeoutId = null;
     }, wait);
   };
+
+  fn.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+
+  return fn;
 }

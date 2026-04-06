@@ -1,16 +1,16 @@
 /** Macro Economy section — FRED data charts */
 
+import { colors } from "../utils/colors.js";
+import { brk } from "../client.js";
 import { Unit } from "../utils/units.js";
 import { line } from "./series.js";
 
 /**
  * Create Macro Economy section
- * @param {PartialContext} ctx
  * @returns {PartialOptionsGroup}
  */
-export function createMacroEconomySection(ctx) {
-  const { colors, brk } = ctx;
-  const { macroEconomy } = brk.metrics;
+export function createMacroEconomySection() {
+  const { macroEconomy } = brk.series;
   const {
     interestRates,
     moneySupply,
@@ -33,7 +33,7 @@ export function createMacroEconomySection(ctx) {
             title: "Federal Funds Effective Rate (DFF)",
             bottom: [
               line({
-                metric: interestRates.fedFundsRate,
+                series: interestRates.fedFundsRate,
                 name: "Fed Funds Rate",
                 unit: Unit.percentage,
                 color: colors.blue,
@@ -45,19 +45,19 @@ export function createMacroEconomySection(ctx) {
             title: "US Treasury Yields",
             bottom: [
               line({
-                metric: interestRates.treasuryYield2y,
+                series: interestRates.treasuryYield2y,
                 name: "2Y Yield",
                 unit: Unit.percentage,
                 color: colors.green,
               }),
               line({
-                metric: interestRates.treasuryYield10y,
+                series: interestRates.treasuryYield10y,
                 name: "10Y Yield",
                 unit: Unit.percentage,
                 color: colors.yellow,
               }),
               line({
-                metric: interestRates.treasuryYield30y,
+                series: interestRates.treasuryYield30y,
                 name: "30Y Yield",
                 unit: Unit.percentage,
                 color: colors.red,
@@ -69,7 +69,7 @@ export function createMacroEconomySection(ctx) {
             title: "10Y - 2Y Treasury Spread (Yield Curve)",
             bottom: [
               line({
-                metric: interestRates.yieldSpread10y2y,
+                series: interestRates.yieldSpread10y2y,
                 name: "10Y - 2Y Spread",
                 unit: Unit.percentage,
                 color: colors.orange,
@@ -88,7 +88,7 @@ export function createMacroEconomySection(ctx) {
             title: "M1 Money Supply (Billions USD)",
             bottom: [
               line({
-                metric: moneySupply.m1,
+                series: moneySupply.m1,
                 name: "M1",
                 unit: Unit.usd,
                 color: colors.blue,
@@ -100,7 +100,7 @@ export function createMacroEconomySection(ctx) {
             title: "M2 Money Supply (Billions USD)",
             bottom: [
               line({
-                metric: moneySupply.m2,
+                series: moneySupply.m2,
                 name: "M2",
                 unit: Unit.usd,
                 color: colors.purple,
@@ -112,13 +112,13 @@ export function createMacroEconomySection(ctx) {
             title: "Money Supply Comparison",
             bottom: [
               line({
-                metric: moneySupply.m1,
+                series: moneySupply.m1,
                 name: "M1",
                 unit: Unit.usd,
                 color: colors.blue,
               }),
               line({
-                metric: moneySupply.m2,
+                series: moneySupply.m2,
                 name: "M2",
                 unit: Unit.usd,
                 color: colors.purple,
@@ -137,7 +137,7 @@ export function createMacroEconomySection(ctx) {
             title: "US Unemployment Rate (%)",
             bottom: [
               line({
-                metric: employment.unemploymentRate,
+                series: employment.unemploymentRate,
                 name: "Unemployment",
                 unit: Unit.percentage,
                 color: colors.red,
@@ -149,7 +149,7 @@ export function createMacroEconomySection(ctx) {
             title: "Initial Jobless Claims (Weekly)",
             bottom: [
               line({
-                metric: employment.initialClaims,
+                series: employment.initialClaims,
                 name: "Initial Claims",
                 unit: Unit.count,
                 color: colors.orange,
@@ -161,7 +161,7 @@ export function createMacroEconomySection(ctx) {
             title: "Non-farm Payrolls (Thousands)",
             bottom: [
               line({
-                metric: employment.nonfarmPayrolls,
+                series: employment.nonfarmPayrolls,
                 name: "NFP",
                 unit: Unit.count,
                 color: colors.green,
@@ -180,13 +180,13 @@ export function createMacroEconomySection(ctx) {
             title: "Consumer Price Index",
             bottom: [
               line({
-                metric: inflation.cpi,
+                series: inflation.cpi,
                 name: "CPI",
                 unit: Unit.index,
                 color: colors.red,
               }),
               line({
-                metric: inflation.coreCpi,
+                series: inflation.coreCpi,
                 name: "Core CPI",
                 unit: Unit.index,
                 color: colors.orange,
@@ -199,13 +199,13 @@ export function createMacroEconomySection(ctx) {
             title: "Personal Consumption Expenditures Price Index",
             bottom: [
               line({
-                metric: inflation.pce,
+                series: inflation.pce,
                 name: "PCE",
                 unit: Unit.index,
                 color: colors.blue,
               }),
               line({
-                metric: inflation.corePce,
+                series: inflation.corePce,
                 name: "Core PCE",
                 unit: Unit.index,
                 color: colors.purple,
@@ -218,7 +218,7 @@ export function createMacroEconomySection(ctx) {
             title: "Producer Price Index — All Commodities",
             bottom: [
               line({
-                metric: inflation.ppi,
+                series: inflation.ppi,
                 name: "PPI",
                 unit: Unit.index,
                 color: colors.yellow,
@@ -230,31 +230,31 @@ export function createMacroEconomySection(ctx) {
             title: "Inflation Indices Compared",
             bottom: [
               line({
-                metric: inflation.cpi,
+                series: inflation.cpi,
                 name: "CPI",
                 unit: Unit.index,
                 color: colors.red,
               }),
               line({
-                metric: inflation.coreCpi,
+                series: inflation.coreCpi,
                 name: "Core CPI",
                 unit: Unit.index,
                 color: colors.orange,
               }),
               line({
-                metric: inflation.pce,
+                series: inflation.pce,
                 name: "PCE",
                 unit: Unit.index,
                 color: colors.blue,
               }),
               line({
-                metric: inflation.corePce,
+                series: inflation.corePce,
                 name: "Core PCE",
                 unit: Unit.index,
                 color: colors.purple,
               }),
               line({
-                metric: inflation.ppi,
+                series: inflation.ppi,
                 name: "PPI",
                 unit: Unit.index,
                 color: colors.yellow,
@@ -273,7 +273,7 @@ export function createMacroEconomySection(ctx) {
             title: "US Gross Domestic Product (Billions USD)",
             bottom: [
               line({
-                metric: growth.gdp,
+                series: growth.gdp,
                 name: "GDP",
                 unit: Unit.usd,
                 color: colors.green,
@@ -285,7 +285,7 @@ export function createMacroEconomySection(ctx) {
             title: "University of Michigan Consumer Sentiment",
             bottom: [
               line({
-                metric: growth.consumerConfidence,
+                series: growth.consumerConfidence,
                 name: "Consumer Sentiment",
                 unit: Unit.index,
                 color: colors.blue,
@@ -297,7 +297,7 @@ export function createMacroEconomySection(ctx) {
             title: "Retail Sales ex Food Services (Millions USD)",
             bottom: [
               line({
-                metric: growth.retailSales,
+                series: growth.retailSales,
                 name: "Retail Sales",
                 unit: Unit.usd,
                 color: colors.purple,
@@ -316,7 +316,7 @@ export function createMacroEconomySection(ctx) {
             title: "Gold Futures Price (USD/oz)",
             bottom: [
               line({
-                metric: commodities.goldPrice,
+                series: commodities.goldPrice,
                 name: "Gold",
                 unit: Unit.usd,
                 color: colors.yellow,
@@ -328,7 +328,7 @@ export function createMacroEconomySection(ctx) {
             title: "Silver Futures Price (USD/oz)",
             bottom: [
               line({
-                metric: commodities.silverPrice,
+                series: commodities.silverPrice,
                 name: "Silver",
                 unit: Unit.usd,
                 color: colors.gray,
@@ -340,13 +340,13 @@ export function createMacroEconomySection(ctx) {
             title: "Precious Metals Comparison",
             bottom: [
               line({
-                metric: commodities.goldPrice,
+                series: commodities.goldPrice,
                 name: "Gold",
                 unit: Unit.usd,
                 color: colors.yellow,
               }),
               line({
-                metric: commodities.silverPrice,
+                series: commodities.silverPrice,
                 name: "Silver",
                 unit: Unit.usd,
                 color: colors.gray,
@@ -358,7 +358,7 @@ export function createMacroEconomySection(ctx) {
             title: "WTI Crude Oil Futures (USD/bbl)",
             bottom: [
               line({
-                metric: commodities.oilWti,
+                series: commodities.oilWti,
                 name: "WTI",
                 unit: Unit.usd,
                 color: colors.orange,
@@ -370,7 +370,7 @@ export function createMacroEconomySection(ctx) {
             title: "Brent Crude Oil Futures (USD/bbl)",
             bottom: [
               line({
-                metric: commodities.oilBrent,
+                series: commodities.oilBrent,
                 name: "Brent",
                 unit: Unit.usd,
                 color: colors.red,
@@ -382,13 +382,13 @@ export function createMacroEconomySection(ctx) {
             title: "Crude Oil Comparison",
             bottom: [
               line({
-                metric: commodities.oilWti,
+                series: commodities.oilWti,
                 name: "WTI",
                 unit: Unit.usd,
                 color: colors.orange,
               }),
               line({
-                metric: commodities.oilBrent,
+                series: commodities.oilBrent,
                 name: "Brent",
                 unit: Unit.usd,
                 color: colors.red,
@@ -407,7 +407,7 @@ export function createMacroEconomySection(ctx) {
             title: "S&P 500 Index",
             bottom: [
               line({
-                metric: other.sp500,
+                series: other.sp500,
                 name: "S&P 500",
                 unit: Unit.index,
                 color: colors.green,
@@ -419,7 +419,7 @@ export function createMacroEconomySection(ctx) {
             title: "CBOE Volatility Index (Fear Gauge)",
             bottom: [
               line({
-                metric: other.vix,
+                series: other.vix,
                 name: "VIX",
                 unit: Unit.index,
                 color: colors.red,
@@ -431,7 +431,7 @@ export function createMacroEconomySection(ctx) {
             title: "Trade-Weighted US Dollar Index",
             bottom: [
               line({
-                metric: other.dollarIndex,
+                series: other.dollarIndex,
                 name: "DXY (Broad)",
                 unit: Unit.index,
                 color: colors.green,
@@ -443,7 +443,7 @@ export function createMacroEconomySection(ctx) {
             title: "Federal Reserve Total Assets (Millions USD)",
             bottom: [
               line({
-                metric: other.fedBalanceSheet,
+                series: other.fedBalanceSheet,
                 name: "Fed Balance Sheet",
                 unit: Unit.usd,
                 color: colors.blue,
@@ -452,14 +452,13 @@ export function createMacroEconomySection(ctx) {
           },
           {
             name: "BTC Funding Rate",
-            title: "BTC Perpetual Futures Funding Rate — Annualized % (Binance)",
+            title: "BTC Perpetual Futures Funding Rate (Binance)",
             bottom: [
               line({
-                metric: other.fundingRate,
-                name: "Funding Rate (Ann.)",
+                series: other.fundingRate,
+                name: "Funding Rate",
                 unit: Unit.percentage,
                 color: colors.orange,
-                transform: (r) => (Math.pow(1 + r, 1095) - 1) * 100,
               }),
             ],
           },

@@ -3,39 +3,14 @@ import { createButtonElement, createAnchorElement } from "../utils/dom.js";
 import { pushHistory, resetParams } from "../utils/url.js";
 import { readStored, writeToStorage } from "../utils/storage.js";
 import { stringToId } from "../utils/format.js";
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { logUnused } from "./unused.js";
-=======
-import {
-  collect,
-  markUsed,
-  logUnused,
-  extractTreeStructure,
-} from "./unused.js";
-import { localhost } from "../utils/env.js";
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-import { collect, markUsed, logUnused } from "./unused.js";
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 import { setQr } from "../panes/share.js";
 import { getConstant } from "./constants.js";
-import { colors } from "../chart/colors.js";
+import { colors } from "../utils/colors.js";
 import { Unit } from "../utils/units.js";
+import { brk } from "../client.js";
 
-<<<<<<< HEAD
 export function initOptions() {
-<<<<<<< HEAD
-=======
-=======
-/**
- * @param {BrkClient} brk
- */
-export function initOptions(brk) {
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-  collect(brk.metrics);
-
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const LS_SELECTED_KEY = `selected_path`;
 
   const urlPath_ = window.document.location.pathname
@@ -45,23 +20,8 @@ export function initOptions(brk) {
   const savedPath = /** @type {string[]} */ (
     JSON.parse(readStored(LS_SELECTED_KEY) || "[]") || []
   ).filter((v) => v);
-  console.log(savedPath);
 
-<<<<<<< HEAD
   const partialOptions = createPartialOptions();
-<<<<<<< HEAD
-=======
-
-  // Log tree structure for analysis (localhost only)
-  if (localhost) {
-    console.log(extractTreeStructure(partialOptions));
-  }
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-  const partialOptions = createPartialOptions({
-    brk,
-  });
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
   /** @type {Option[]} */
   const list = [];
@@ -125,8 +85,6 @@ export function initOptions(brk) {
   }
 
   /**
-<<<<<<< HEAD
-<<<<<<< HEAD
    * @template T
    * @param {() => T} fn
    * @returns {() => T}
@@ -145,35 +103,14 @@ export function initOptions(brk) {
   }
 
   /**
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-   * Check if a metric is an ActivePricePattern (has dollars and sats sub-metrics)
-   * @param {any} metric
-   * @returns {metric is ActivePricePattern}
-   */
-  function isActivePricePattern(metric) {
-    return (
-      metric &&
-      typeof metric === "object" &&
-      "dollars" in metric &&
-      "sats" in metric &&
-      metric.dollars?.by &&
-      metric.sats?.by
-    );
-  }
-
-  /**
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
    * @param {(AnyFetchedSeriesBlueprint | FetchedPriceSeriesBlueprint)[]} [arr]
    */
-  function arrayToMap(arr = []) {
+  function arrayToMap(arr) {
     /** @type {Map<Unit, AnyFetchedSeriesBlueprint[]>} */
     const map = new Map();
     /** @type {Map<Unit, Set<number>>} */
     const priceLines = new Map();
 
-<<<<<<< HEAD
     if (!arr) return map;
 
     // Cache arrays for common units outside loop
@@ -185,7 +122,6 @@ export function initOptions(brk) {
     for (let i = 0; i < arr.length; i++) {
       const blueprint = arr[i];
 
-<<<<<<< HEAD
       // Check for undefined series
       if (!blueprint.series) {
         throw new Error(`Blueprint has undefined series: ${blueprint.title}`);
@@ -215,41 +151,6 @@ export function initOptions(brk) {
       const unit = regularBlueprint.unit;
       if (!unit) continue;
 
-=======
-      // Check for undefined metric
-=======
-    for (const blueprint of arr || []) {
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-      if (!blueprint.metric) {
-        console.warn(
-          `Blueprint missing metric (skipping): ${JSON.stringify(blueprint)}`,
-        );
-        continue;
-      }
-
-      // Auto-expand ActivePricePattern into USD and sats versions
-      if (isActivePricePattern(blueprint.metric)) {
-        const pricePattern = /** @type {AnyPricePattern} */ (blueprint.metric);
-
-        // USD version
-        markUsed(pricePattern.dollars);
-        if (!map.has(Unit.usd)) map.set(Unit.usd, []);
-        map.get(Unit.usd)?.push({ ...blueprint, metric: pricePattern.dollars, unit: Unit.usd });
-
-        // Sats version
-        markUsed(pricePattern.sats);
-        if (!map.has(Unit.sats)) map.set(Unit.sats, []);
-        map.get(Unit.sats)?.push({ ...blueprint, metric: pricePattern.sats, unit: Unit.sats });
-
-        continue;
-      }
-
-      // At this point, blueprint is definitely an AnyFetchedSeriesBlueprint (not a price pattern)
-      const regularBlueprint = /** @type {AnyFetchedSeriesBlueprint} */ (blueprint);
-
-<<<<<<< HEAD
-      markUsed(metric);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       let unitArr = map.get(unit);
       if (!unitArr) map.set(unit, (unitArr = []));
       unitArr.push(regularBlueprint);
@@ -262,63 +163,32 @@ export function initOptions(brk) {
         priceSet.add(regularBlueprint.options?.baseValue?.price ?? 0);
       } else if (!type || type === "Line") {
         // Check if manual price line - avoid Object.values() array allocation
-<<<<<<< HEAD
         const by = s.by;
-=======
-        const by = metric.by;
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
         for (const k in by) {
           if (by[/** @type {Index} */ (k)]?.path?.includes("constant_")) {
             priceLines.get(unit)?.delete(parseFloat(regularBlueprint.title));
           }
           break;
-=======
-      if (!regularBlueprint.unit) {
-        console.warn(`Blueprint missing unit (skipping): ${regularBlueprint.title}`);
-        continue;
-      }
-      markUsed(regularBlueprint.metric);
-      const unit = regularBlueprint.unit;
-      if (!map.has(unit)) {
-        map.set(unit, []);
-      }
-      map.get(unit)?.push(regularBlueprint);
-
-      // Track baseline base values for auto price lines
-      if (regularBlueprint.type === "Baseline") {
-        const baseValue = regularBlueprint.options?.baseValue?.price ?? 0;
-        if (!priceLines.has(unit)) priceLines.set(unit, new Set());
-        priceLines.get(unit)?.add(baseValue);
-      }
-
-      // Remove from set if manual price line already exists
-      // Note: line() doesn't set type, so undefined means Line
-      if (regularBlueprint.type === "Line" || regularBlueprint.type === undefined) {
-        const path = Object.values(regularBlueprint.metric.by)[0]?.path ?? "";
-        if (path.includes("constant_")) {
-          priceLines.get(unit)?.delete(parseFloat(regularBlueprint.title));
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
         }
       }
     }
 
     // Add price lines at end for remaining values
     for (const [unit, values] of priceLines) {
+      const arr = map.get(unit);
+      if (!arr) continue;
       for (const baseValue of values) {
-<<<<<<< HEAD
         const s = getConstant(brk.series.constants, baseValue);
         arr.push({
           series: s,
-=======
-        const metric = getConstant(brk.metrics.constants, baseValue);
-        markUsed(metric);
-        map.get(unit)?.push({
-          metric,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
           title: `${baseValue}`,
           color: colors.gray,
           unit,
-          options: { lineStyle: 4, lastValueVisible: false, crosshairMarkerVisible: false },
+          options: {
+            lineStyle: 4,
+            lastValueVisible: false,
+            crosshairMarkerVisible: false,
+          },
         });
       }
     }
@@ -384,30 +254,41 @@ export function initOptions(brk) {
    * @typedef {ProcessedGroup | ProcessedOption} ProcessedNode
    */
 
+  // Pre-compute path strings for faster comparison
+  const urlPathStr = urlPath?.join("/");
+  const savedPathStr = savedPath?.join("/");
+
   /**
    * @param {PartialOptionsTree} partialTree
    * @param {string[]} parentPath
-   * @returns {ProcessedNode[]}
+   * @param {string} parentPathStr
+   * @returns {{ nodes: ProcessedNode[], count: number }}
    */
-  function processPartialTree(partialTree, parentPath = []) {
+  function processPartialTree(
+    partialTree,
+    parentPath = [],
+    parentPathStr = "",
+  ) {
     /** @type {ProcessedNode[]} */
     const nodes = [];
+    let totalCount = 0;
 
-    for (const anyPartial of partialTree) {
+    for (let i = 0; i < partialTree.length; i++) {
+      const anyPartial = partialTree[i];
       if ("tree" in anyPartial) {
         const serName = stringToId(anyPartial.name);
-        const path = [...parentPath, serName];
-        const children = processPartialTree(anyPartial.tree, path);
-
-        // Compute count from children
-        const count = children.reduce(
-          (sum, child) => sum + (child.type === "group" ? child.count : 1),
-          0,
+        const pathStr = parentPathStr ? `${parentPathStr}/${serName}` : serName;
+        const path = parentPath.concat(serName);
+        const { nodes: children, count } = processPartialTree(
+          anyPartial.tree,
+          path,
+          pathStr,
         );
 
         // Skip groups with no children
         if (count === 0) continue;
 
+        totalCount += count;
         nodes.push({
           type: "group",
           name: anyPartial.name,
@@ -420,39 +301,23 @@ export function initOptions(brk) {
       } else {
         const option = /** @type {Option} */ (anyPartial);
         const name = option.name;
-        const path = [...parentPath, stringToId(option.name)];
+        const serName = stringToId(name);
+        const pathStr = parentPathStr ? `${parentPathStr}/${serName}` : serName;
+        const path = parentPath.concat(serName);
 
         // Transform partial to full option
         if ("kind" in anyPartial && anyPartial.kind === "explorer") {
-          Object.assign(
-            option,
-            /** @satisfies {ExplorerOption} */ ({
-              kind: anyPartial.kind,
-              path,
-              name,
-              title: option.title,
-            }),
-          );
+          option.kind = anyPartial.kind;
+          option.path = path;
+          option.name = name;
         } else if ("kind" in anyPartial && anyPartial.kind === "table") {
-          Object.assign(
-            option,
-            /** @satisfies {TableOption} */ ({
-              kind: anyPartial.kind,
-              path,
-              name,
-              title: option.title,
-            }),
-          );
+          option.kind = anyPartial.kind;
+          option.path = path;
+          option.name = name;
         } else if ("kind" in anyPartial && anyPartial.kind === "simulation") {
-          Object.assign(
-            option,
-            /** @satisfies {SimulationOption} */ ({
-              kind: anyPartial.kind,
-              path,
-              name,
-              title: anyPartial.title,
-            }),
-          );
+          option.kind = anyPartial.kind;
+          option.path = path;
+          option.name = name;
         } else if ("url" in anyPartial) {
           Object.assign(
             option,
@@ -466,18 +331,11 @@ export function initOptions(brk) {
             }),
           );
         } else {
-<<<<<<< HEAD
           const title = option.title || name;
-<<<<<<< HEAD
           const topArr = anyPartial.top;
           const bottomArr = anyPartial.bottom;
           const topFn = lazy(() => arrayToMap(topArr));
           const bottomFn = lazy(() => arrayToMap(bottomArr));
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-=======
-          const title = option.title || option.name;
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
           Object.assign(
             option,
             /** @satisfies {ChartOption} */ ({
@@ -492,22 +350,13 @@ export function initOptions(brk) {
         }
 
         list.push(option);
+        totalCount++;
 
-        // Check if this matches URL or saved path
-        if (urlPath) {
-          const sameAsURLPath =
-            urlPath.length === path.length &&
-            urlPath.every((val, i) => val === path[i]);
-          if (sameAsURLPath) {
-            selected.set(option);
-          }
-        } else if (savedPath) {
-          const sameAsSavedPath =
-            savedPath.length === path.length &&
-            savedPath.every((val, i) => val === path[i]);
-          if (sameAsSavedPath) {
-            savedOption = option;
-          }
+        // Check if this matches URL or saved path (string comparison is faster)
+        if (urlPathStr && pathStr === urlPathStr) {
+          selected.set(option);
+        } else if (savedPathStr && pathStr === savedPathStr) {
+          savedOption = option;
         }
 
         nodes.push({
@@ -519,20 +368,11 @@ export function initOptions(brk) {
       }
     }
 
-    return nodes;
+    return { nodes, count: totalCount };
   }
 
-<<<<<<< HEAD
-<<<<<<< HEAD
   logUnused(brk.series, partialOptions);
   const { nodes: processedTree } = processPartialTree(partialOptions);
-=======
-  const { nodes: processedTree } = processPartialTree(partialOptions);
-=======
-  const processedTree = processPartialTree(partialOptions);
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-  logUnused();
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
   /**
    * @param {ProcessedNode[]} nodes

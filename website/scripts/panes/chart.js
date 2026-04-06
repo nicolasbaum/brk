@@ -3,18 +3,9 @@ import { chartElement } from "../utils/elements.js";
 import { INDEX_FROM_LABEL } from "../utils/serde.js";
 import { Unit } from "../utils/units.js";
 import { createChart } from "../chart/index.js";
-<<<<<<< HEAD
 import { colors } from "../utils/colors.js";
-<<<<<<< HEAD
 import { latestPrice, onPrice } from "../utils/price.js";
-=======
-import { webSockets } from "../utils/ws.js";
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 import { brk } from "../client.js";
-=======
-import { colors } from "../chart/colors.js";
-import { webSockets } from "../utils/ws.js";
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 
 const ONE_BTC_IN_SATS = 100_000_000;
 
@@ -29,20 +20,7 @@ export function setOption(opt) {
   _setOption(opt);
 }
 
-<<<<<<< HEAD
 export function init() {
-<<<<<<< HEAD
-=======
-=======
-/**
- * @param {BrkClient} brk
- */
-export function init(brk) {
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-  chartElement.append(createShadow("left"));
-  chartElement.append(createShadow("right"));
-
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const { headerElement, headingElement } = createHeader();
   chartElement.append(headerElement);
 
@@ -64,7 +42,6 @@ export function init(brk) {
 
     const { ohlc, spot } = brk.series.prices;
 
-<<<<<<< HEAD
     result.set(Unit.usd, [
       /** @type {AnyFetchedSeriesBlueprint} */ ({
         type: "Price",
@@ -85,17 +62,6 @@ export function init(brk) {
       }),
       ...(optionTop.get(Unit.sats) ?? []),
     ]);
-=======
-    // Sats price + option blueprints
-    /** @type {FetchedCandlestickSeriesBlueprint} */
-    const satsPrice = {
-      type: "Candlestick",
-      title: "Price",
-      metric: brk.metrics.price.sats.ohlc,
-      colors: [colors.red, colors.green],
-    };
-    result.set(Unit.sats, [satsPrice, ...(optionTop.get(Unit.sats) ?? [])]);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
     return result;
   }
@@ -130,25 +96,16 @@ export function init(brk) {
   _setOption = (opt) => {
     headingElement.innerHTML = opt.title;
 
-<<<<<<< HEAD
     // Set blueprints first so storageId is correct before any index change
-<<<<<<< HEAD
     chart.setBlueprints({
       name: opt.title,
       top: buildTopBlueprints(opt.top()),
       bottom: opt.bottom(),
-=======
-=======
-    // Update index choices based on option
-    setChoices(computeChoices(opt));
-
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-    blueprints = chart.setBlueprints({
-      top: buildTopBlueprints(opt.top),
-      bottom: opt.bottom,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       onDataLoaded: updatePriceWithLatest,
     });
+
+    // Update index choices (may trigger rebuild if index changes)
+    setChoices(computeChoices(opt));
   };
 
   // Live price update listener

@@ -15,8 +15,6 @@ function walkSeries(node, map, path) {
     for (const [key, value] of Object.entries(node)) {
       const kn = key.toLowerCase();
       if (
-<<<<<<< HEAD
-<<<<<<< HEAD
         key === "sd24h" ||
         key === "emaSlow" ||
         key === "emaFast" ||
@@ -42,50 +40,6 @@ function walkSeries(node, map, path) {
       )
         continue;
       walkSeries(/** @type {TreeNode | null | undefined} */ (value), map, newPath);
-=======
-        key.endsWith("Raw") ||
-        key.endsWith("Cents") ||
-        key.endsWith("State") ||
-        key.endsWith("Start") ||
-=======
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
-        kn === "mvrv" ||
-        kn === "time" ||
-        kn === "height" ||
-        kn === "constants" ||
-        kn === "blockhash" ||
-        kn === "oracle" ||
-        kn === "split" ||
-        kn === "ohlc" ||
-        kn === "outpoint" ||
-        kn === "positions" ||
-        kn === "outputtype" ||
-        kn === "heighttopool" ||
-        kn === "txid" ||
-        kn.startsWith("satblocks") ||
-        kn.startsWith("satdays") ||
-        kn.endsWith("state") ||
-        kn.endsWith("index") ||
-        kn.endsWith("indexes") ||
-        kn.endsWith("bytes") ||
-        (kn.startsWith("_") && kn.endsWith("start"))
-      )
-        continue;
-      // if (
-      // kn === "mvrv" ||
-      // kn.endsWith("index") ||
-      // kn.endsWith("indexes") ||
-      // kn.endsWith("start") ||
-      // kn.endsWith("hash") ||
-      // kn.endsWith("data") ||
-      // kn.endsWith("constants")
-      // )
-      //   return;
-      walk(/** @type {TreeNode | null | undefined} */ (value), map, [
-        ...path,
-        key,
-      ]);
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     }
   }
 }

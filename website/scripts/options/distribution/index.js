@@ -1,9 +1,15 @@
 /**
  * Cohort module - exports all cohort-related functionality
+ *
+ * Folder builders compose sections from building blocks:
+ * - holdings.js: Supply, UTXO Count, Address Count
+ * - valuation.js: Realized Cap, Market Cap, MVRV
+ * - prices.js: Realized Price, ratios
+ * - cost-basis.js: Cost basis percentiles
+ * - profitability.js: Unrealized/Realized P&L, Invested Capital
+ * - activity.js: SOPR, Volume, Lifespan
  */
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 import {
   formatCohortTitle,
   satsBtcUsd,
@@ -19,9 +25,6 @@ import {
 } from "../series.js";
 import { Unit } from "../../utils/units.js";
 import { colors } from "../../utils/colors.js";
-=======
-import { formatCohortTitle } from "../shared.js";
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 
 // Section builders
 import {
@@ -29,10 +32,7 @@ import {
   createHoldingsSectionAll,
   createHoldingsSectionAddress,
   createHoldingsSectionAddressAmount,
-<<<<<<< HEAD
   createHoldingsSectionWithProfitLoss,
-=======
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   createHoldingsSectionWithRelative,
   createHoldingsSectionWithOwnSupply,
   createGroupedHoldingsSection,
@@ -51,25 +51,16 @@ import {
   createPricesSectionFull,
   createPricesSectionBasic,
   createGroupedPricesSection,
-<<<<<<< HEAD
   createGroupedPricesSectionFull,
 } from "./prices.js";
 import {
   createCostBasisSectionWithPercentiles,
-=======
-} from "./prices.js";
-import {
-  createCostBasisSection,
-  createCostBasisSectionWithPercentiles,
-  createGroupedCostBasisSection,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   createGroupedCostBasisSectionWithPercentiles,
 } from "./cost-basis.js";
 import {
   createProfitabilitySection,
   createProfitabilitySectionAll,
   createProfitabilitySectionFull,
-<<<<<<< HEAD
   createProfitabilitySectionWithProfitLoss,
   createProfitabilitySectionWithInvestedCapitalPct,
   createProfitabilitySectionLongTerm,
@@ -77,74 +68,35 @@ import {
   createGroupedProfitabilitySectionWithProfitLoss,
   createGroupedProfitabilitySectionWithNupl,
   createGroupedProfitabilitySectionWithInvestedCapitalPct,
-=======
-  createProfitabilitySectionWithNupl,
-  createProfitabilitySectionWithPeakRegret,
-  createProfitabilitySectionWithInvestedCapitalPct,
-  createProfitabilitySectionBasicWithInvestedCapitalPct,
-  createProfitabilitySectionLongTerm,
-  createGroupedProfitabilitySection,
-  createGroupedProfitabilitySectionWithNupl,
-  createGroupedProfitabilitySectionWithPeakRegret,
-  createGroupedProfitabilitySectionWithInvestedCapitalPct,
-  createGroupedProfitabilitySectionBasicWithInvestedCapitalPct,
-  createGroupedProfitabilitySectionLongTerm,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 } from "./profitability.js";
 import {
   createActivitySection,
   createActivitySectionWithAdjusted,
-<<<<<<< HEAD
   createActivitySectionWithActivity,
   createGroupedActivitySection,
   createGroupedActivitySectionWithActivity,
   createActivitySectionMinimal,
   createGroupedActivitySectionMinimal,
-=======
-  createGroupedActivitySection,
-  createGroupedActivitySectionWithAdjusted,
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 } from "./activity.js";
 
 // Re-export data builder
-=======
-// Cohort data builder
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
 export { buildCohortData } from "./data.js";
 
-// Cohort folder builders (type-safe!)
-export {
-  createCohortFolderAll,
-  createCohortFolderFull,
-  createCohortFolderWithAdjusted,
-  createCohortFolderWithNupl,
-  createCohortFolderAgeRange,
-  createCohortFolderBasicWithMarketCap,
-  createCohortFolderBasicWithoutMarketCap,
-  createCohortFolderAddress,
-} from "./utxo.js";
-export { createAddressCohortFolder } from "./address.js";
+// ============================================================================
+// Single Cohort Folder Builders
+// ============================================================================
 
-<<<<<<< HEAD
 /**
  * All folder: for the special "All" cohort
  * @param {CohortAll} cohort
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderAll(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
     tree: [
       ...createHoldingsSectionAll({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionAll({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       createValuationSectionFull({ cohort, title }),
       createPricesSectionFull({ cohort, title }),
       createCostBasisSectionWithPercentiles({ cohort, title }),
@@ -160,19 +112,11 @@ export function createCohortFolderAll(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderFull(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
     tree: [
       ...createHoldingsSectionWithRelative({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       createValuationSectionFull({ cohort, title }),
       createPricesSectionFull({ cohort, title }),
       createCostBasisSectionWithPercentiles({ cohort, title }),
@@ -188,7 +132,6 @@ export function createCohortFolderFull(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderWithAdjusted(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
@@ -198,18 +141,6 @@ export function createCohortFolderWithAdjusted(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySectionWithInvestedCapitalPct({ cohort, title }),
       createActivitySectionWithActivity({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionWithPeakRegret({ cohort, title }),
-      createActivitySectionWithAdjusted({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
@@ -220,7 +151,6 @@ export function createCohortFolderWithAdjusted(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderWithNupl(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
@@ -230,17 +160,6 @@ export function createCohortFolderWithNupl(cohort) {
       createPricesSectionFull({ cohort, title }),
       createCostBasisSectionWithPercentiles({ cohort, title }),
       createProfitabilitySection({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
-      createValuationSectionFull({ cohort, title }),
-      createPricesSectionFull({ cohort, title }),
-      createCostBasisSectionWithPercentiles({ cohort, title }),
-      createProfitabilitySectionWithNupl({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       createActivitySection({ cohort, title }),
     ],
   };
@@ -252,19 +171,11 @@ export function createCohortFolderWithNupl(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderLongTerm(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
     tree: [
       ...createHoldingsSectionWithRelative({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       createValuationSectionFull({ cohort, title }),
       createPricesSectionFull({ cohort, title }),
       createCostBasisSectionWithPercentiles({ cohort, title }),
@@ -280,7 +191,6 @@ export function createCohortFolderLongTerm(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderAgeRange(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
@@ -290,24 +200,11 @@ export function createCohortFolderAgeRange(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySectionWithInvestedCapitalPct({ cohort, title }),
       createActivitySectionWithActivity({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithOwnSupply({ cohort, title }),
-      createValuationSectionFull({ cohort, title }),
-      createPricesSectionFull({ cohort, title }),
-      createCostBasisSectionWithPercentiles({ cohort, title }),
-      createProfitabilitySectionWithInvestedCapitalPct({ cohort, title }),
-      createActivitySection({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
 
 /**
-<<<<<<< HEAD
  * Age range folder with matured supply
  * @param {CohortAgeRangeWithMatured} cohort
  * @returns {PartialOptionsGroup}
@@ -324,25 +221,6 @@ export function createCohortFolderAgeRangeWithMatured(cohort) {
     }),
   });
   return folder;
-=======
- * MinAge folder: has peakRegret in unrealized
- * @param {CohortMinAge} cohort
- * @returns {PartialOptionsGroup}
- */
-export function createCohortFolderMinAge(cohort) {
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionWithPeakRegret({ cohort, title }),
-      createActivitySection({ cohort, title }),
-    ],
-  };
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 }
 
 /**
@@ -351,7 +229,6 @@ export function createCohortFolderMinAge(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderBasicWithMarketCap(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
@@ -361,23 +238,10 @@ export function createCohortFolderBasicWithMarketCap(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySection({ cohort, title }),
       createActivitySectionMinimal({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithRelative({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionWithNupl({ cohort, title }),
-      createActivitySection({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
 
-<<<<<<< HEAD
 
 /**
  * Address folder: like basic but with address count
@@ -394,44 +258,6 @@ export function createCohortFolderAddress(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySectionWithProfitLoss({ cohort, title }),
       createActivitySectionMinimal({ cohort, title }),
-=======
-/**
- * Basic folder WITHOUT RelToMarketCap
- * @param {CohortBasicWithoutMarketCap} cohort
- * @returns {PartialOptionsGroup}
- */
-export function createCohortFolderBasicWithoutMarketCap(cohort) {
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionWithOwnSupply({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionBasicWithInvestedCapitalPct({ cohort, title }),
-      createActivitySection({ cohort, title }),
-    ],
-  };
-}
-
-/**
- * Address folder: like basic but with address count
- * @param {CohortAddress} cohort
- * @returns {PartialOptionsGroup}
- */
-export function createCohortFolderAddress(cohort) {
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionAddress({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionBasicWithInvestedCapitalPct({ cohort, title }),
-      createActivitySection({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
@@ -442,7 +268,6 @@ export function createCohortFolderAddress(cohort) {
  * @returns {PartialOptionsGroup}
  */
 export function createCohortFolderWithoutRelative(cohort) {
-<<<<<<< HEAD
   const title = formatCohortTitle(cohort.title);
   return {
     name: cohort.name || "all",
@@ -452,25 +277,12 @@ export function createCohortFolderWithoutRelative(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySectionWithProfitLoss({ cohort, title }),
       createActivitySectionMinimal({ cohort, title }),
-=======
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSection({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySection({ cohort, title }),
-      createActivitySection({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
 
 /**
  * Address amount cohort folder: has NUPL + addrCount
-<<<<<<< HEAD
  * @param {AddrCohortObject} cohort
  * @returns {PartialOptionsGroup}
  */
@@ -484,22 +296,6 @@ export function createAddressCohortFolder(cohort) {
       createPricesSectionBasic({ cohort, title }),
       createProfitabilitySection({ cohort, title }),
       createActivitySectionMinimal({ cohort, title }),
-=======
- * @param {AddressCohortObject} cohort
- * @returns {PartialOptionsGroup}
- */
-export function createAddressCohortFolder(cohort) {
-  const title = formatCohortTitle(cohort.name);
-  return {
-    name: cohort.name || "all",
-    tree: [
-      createHoldingsSectionAddressAmount({ cohort, title }),
-      createValuationSection({ cohort, title }),
-      createPricesSectionBasic({ cohort, title }),
-      createCostBasisSection({ cohort, title }),
-      createProfitabilitySectionWithNupl({ cohort, title }),
-      createActivitySection({ cohort, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
@@ -509,7 +305,6 @@ export function createAddressCohortFolder(cohort) {
 // ============================================================================
 
 /**
-<<<<<<< HEAD
  * @param {CohortGroupWithAdjusted} args
  * @returns {PartialOptionsGroup}
  */
@@ -519,17 +314,10 @@ export function createGroupedCohortFolderWithAdjusted({
   list,
   all,
 }) {
-=======
- * @param {CohortGroupFull} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderFull({ name, title: groupTitle, list, all }) {
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const title = formatCohortTitle(groupTitle);
   return {
     name: name || "all",
     tree: [
-<<<<<<< HEAD
       ...createGroupedHoldingsSectionWithOwnSupply({ list, all, title }),
       createGroupedValuationSection({ list, all, title }),
       createGroupedPricesSection({ list, all, title }),
@@ -539,33 +327,6 @@ export function createGroupedCohortFolderFull({ name, title: groupTitle, list, a
         title,
       }),
       createGroupedActivitySectionWithActivity({ list, all, title }),
-=======
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSectionWithOwnMarketCap({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSectionWithPercentiles({ list, all, title }),
-      createGroupedProfitabilitySectionWithNupl({ list, all, title }),
-      createGroupedActivitySectionWithAdjusted({ list, all, title }),
-    ],
-  };
-}
-
-/**
- * @param {CohortGroupWithAdjusted} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderWithAdjusted({ name, title: groupTitle, list, all }) {
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionWithPeakRegret({ list, all, title }),
-      createGroupedActivitySectionWithAdjusted({ list, all, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
@@ -574,29 +335,19 @@ export function createGroupedCohortFolderWithAdjusted({ name, title: groupTitle,
  * @param {CohortGroupWithNuplPercentiles} args
  * @returns {PartialOptionsGroup}
  */
-<<<<<<< HEAD
 export function createGroupedCohortFolderWithNupl({
   name,
   title: groupTitle,
   list,
   all,
 }) {
-=======
-export function createGroupedCohortFolderWithNupl({ name, title: groupTitle, list, all }) {
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const title = formatCohortTitle(groupTitle);
   return {
     name: name || "all",
     tree: [
-<<<<<<< HEAD
       ...createGroupedHoldingsSectionWithRelative({ list, all, title }),
       createGroupedValuationSectionWithOwnMarketCap({ list, all, title }),
       createGroupedPricesSectionFull({ list, all, title }),
-=======
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
       createGroupedCostBasisSectionWithPercentiles({ list, all, title }),
       createGroupedProfitabilitySectionWithNupl({ list, all, title }),
       createGroupedActivitySection({ list, all, title }),
@@ -605,7 +356,6 @@ export function createGroupedCohortFolderWithNupl({ name, title: groupTitle, lis
 }
 
 /**
-<<<<<<< HEAD
  * @param {CohortGroupAgeRange} args
  * @returns {PartialOptionsGroup}
  */
@@ -615,36 +365,10 @@ export function createGroupedCohortFolderAgeRange({
   list,
   all,
 }) {
-=======
- * @param {CohortGroupLongTerm} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderLongTerm({ name, title: groupTitle, list, all }) {
   const title = formatCohortTitle(groupTitle);
   return {
     name: name || "all",
     tree: [
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSectionWithOwnMarketCap({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSectionWithPercentiles({ list, all, title }),
-      createGroupedProfitabilitySectionLongTerm({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
-    ],
-  };
-}
-
-/**
- * @param {CohortGroupAgeRange} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderAgeRange({ name, title: groupTitle, list, all }) {
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-<<<<<<< HEAD
       ...createGroupedHoldingsSectionWithOwnSupply({ list, all, title }),
       createGroupedValuationSection({ list, all, title }),
       createGroupedPricesSection({ list, all, title }),
@@ -654,20 +378,11 @@ export function createGroupedCohortFolderAgeRange({ name, title: groupTitle, lis
         title,
       }),
       createGroupedActivitySectionWithActivity({ list, all, title }),
-=======
-      createGroupedHoldingsSectionWithOwnSupply({ list, all, title }),
-      createGroupedValuationSectionWithOwnMarketCap({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSectionWithPercentiles({ list, all, title }),
-      createGroupedProfitabilitySectionWithInvestedCapitalPct({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
 
 /**
-<<<<<<< HEAD
  * @param {{ name: string, title: string, list: readonly CohortAgeRangeWithMatured[], all: CohortAll }} args
  * @returns {PartialOptionsGroup}
  */
@@ -699,120 +414,31 @@ export function createGroupedCohortFolderAgeRangeWithMatured({
     })),
   });
   return folder;
-=======
- * @param {CohortGroupMinAge} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderMinAge({ name, title: groupTitle, list, all }) {
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionWithPeakRegret({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
-    ],
-  };
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
 }
 
 /**
  * @param {CohortGroupBasicWithMarketCap} args
  * @returns {PartialOptionsGroup}
  */
-<<<<<<< HEAD
 export function createGroupedCohortFolderBasicWithMarketCap({
   name,
   title: groupTitle,
   list,
   all,
 }) {
-=======
-export function createGroupedCohortFolderBasicWithMarketCap({ name, title: groupTitle, list, all }) {
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const title = formatCohortTitle(groupTitle);
   return {
     name: name || "all",
     tree: [
-<<<<<<< HEAD
       ...createGroupedHoldingsSection({ list, all, title }),
       createGroupedValuationSection({ list, all, title }),
       createGroupedPricesSection({ list, all, title }),
       createGroupedProfitabilitySection({ list, all, title }),
       createGroupedActivitySectionMinimal({ list, all, title }),
-=======
-      createGroupedHoldingsSectionWithRelative({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionWithNupl({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
     ],
   };
 }
 
-/**
- * @param {CohortGroupBasicWithoutMarketCap} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderBasicWithoutMarketCap({ name, title: groupTitle, list, all }) {
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-      createGroupedHoldingsSectionWithOwnSupply({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionBasicWithInvestedCapitalPct({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
-    ],
-  };
-}
-
-/**
- * @param {CohortGroupAddress} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderAddress({ name, title: groupTitle, list, all }) {
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-      createGroupedHoldingsSectionAddress({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionBasicWithInvestedCapitalPct({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
-    ],
-  };
-}
-
-/**
- * @param {CohortGroupWithoutRelative} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedCohortFolderWithoutRelative({ name, title: groupTitle, list, all }) {
-  const title = formatCohortTitle(groupTitle);
-  return {
-    name: name || "all",
-    tree: [
-      createGroupedHoldingsSection({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySection({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
-    ],
-  };
-}
-
-<<<<<<< HEAD
 
 /**
  * @param {CohortGroupAddr} args
@@ -824,18 +450,10 @@ export function createGroupedCohortFolderAddress({
   list,
   all,
 }) {
-=======
-/**
- * @param {AddressCohortGroupObject} args
- * @returns {PartialOptionsGroup}
- */
-export function createGroupedAddressCohortFolder({ name, title: groupTitle, list, all }) {
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
   const title = formatCohortTitle(groupTitle);
   return {
     name: name || "all",
     tree: [
-<<<<<<< HEAD
       ...createGroupedHoldingsSectionAddress({ list, all, title }),
       createGroupedValuationSection({ list, all, title }),
       createGroupedPricesSection({ list, all, title }),
@@ -1122,29 +740,6 @@ export function createUtxoProfitabilitySection({ range, profit, loss }) {
           ...loss.map((bucket) => singleBucketFolder(bucket, "In Loss")),
         ],
       },
-=======
-      createGroupedHoldingsSectionAddressAmount({ list, all, title }),
-      createGroupedValuationSection({ list, all, title }),
-      createGroupedPricesSection({ list, all, title }),
-      createGroupedCostBasisSection({ list, all, title }),
-      createGroupedProfitabilitySectionWithNupl({ list, all, title }),
-      createGroupedActivitySection({ list, all, title }),
->>>>>>> 69eb58f7 (chore: update website from upstream v0.1.5)
     ],
   };
 }
-=======
-// Shared helpers
-export {
-  createSingleSupplySeries,
-  createGroupedSupplyTotalSeries,
-  createGroupedSupplyInProfitSeries,
-  createGroupedSupplyInLossSeries,
-  createUtxoCountSeries,
-  createAddressCountSeries,
-  createRealizedPriceSeries,
-  createRealizedPriceRatioSeries,
-  createRealizedCapSeries,
-  createCostBasisPercentilesSeries,
-} from "./shared.js";
->>>>>>> a29452a8 (Revert "chore: update website from upstream v0.1.5")
