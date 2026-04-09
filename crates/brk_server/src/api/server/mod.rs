@@ -88,8 +88,9 @@ impl ServerRoutes for ApiRouter<AppState> {
                         .server_tag()
                         .summary("Sync status")
                         .description(
-                            "Returns the sync status of the indexer, including indexed height, \
-                            tip height, blocks behind, and last indexed timestamp.",
+                            "Returns the sync status of the indexer and computed series, \
+                            including indexed height, effective data height, tip height, \
+                            lag metrics, and the last indexed timestamp.",
                         )
                         .json_response::<SyncStatus>()
                         .not_modified()

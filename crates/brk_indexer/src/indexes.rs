@@ -88,26 +88,25 @@ impl IndexesExt for Indexes {
     ) -> Option<Indexes> {
         debug!("Creating indexes from vecs and stores...");
 
-        // Local data height: minimum of vecs and stores
-        let vecs_height = vecs.starting_height();
-        let stores_height = stores.starting_height();
-        let local_height = vecs_height.min(stores_height);
+        let vecs_height = vecs.canonical_starting_height();
+        let stores_height = stores.canonical_starting_height();
+        let local_height = recovery_starting_height(required_height, vecs_height, stores_height)?;
 
-        // Data inconsistency: local data behind required height
-        if local_height < required_height {
-            return None;
-        }
-
-        // Handle reorg: local data ahead of required height
-        let starting_height = if local_height > required_height {
+        if local_height > required_height {
             info!(
                 "Reorg detected: rolling back from {} to {}",
                 local_height, required_height
             );
-            required_height
-        } else {
-            local_height
-        };
+        }
+
+        let starting_height = local_height.min(required_height);
+
+        debug!(
+            vecs_height = ?vecs_height,
+            stores_height = ?stores_height,
+            starting_height = ?starting_height,
+            "Resolved recovery heights from canonical block metadata",
+        );
 
         let empty_output_index = starting_index(
             &vecs.scripts.empty.first_index,
@@ -220,6 +219,20 @@ impl IndexesExt for Indexes {
     }
 }
 
+fn recovery_starting_height(
+    required_height: Height,
+    vecs_height: Height,
+    stores_height: Height,
+) -> Option<Height> {
+    let local_height = vecs_height.min(stores_height);
+
+    if local_height < required_height {
+        return None;
+    }
+
+    Some(local_height)
+}
+
 pub fn starting_index<I, T>(
     height_to_index: &PcoVec<Height, I>,
     index_to_else: &impl ReadableVec<I, T>,
@@ -236,5 +249,47 @@ where
         Some(I::from(index_to_else.len()))
     } else {
         height_to_index.collect_one(starting_height)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::recovery_starting_height;
+    use brk_types::Height;
+
+    #[test]
+    fn prefers_canonical_block_heights_over_lagging_auxiliary_state() {
+        let required_height = Height::from(101_u32);
+        let vecs_height = Height::from(101_u32);
+        let stores_height = Height::from(101_u32);
+
+        assert_eq!(
+            recovery_starting_height(required_height, vecs_height, stores_height),
+            Some(Height::from(101_u32))
+        );
+    }
+
+    #[test]
+    fn rejects_recovery_when_canonical_store_height_is_behind() {
+        let required_height = Height::from(101_u32);
+        let vecs_height = Height::from(101_u32);
+        let stores_height = Height::from(100_u32);
+
+        assert_eq!(
+            recovery_starting_height(required_height, vecs_height, stores_height),
+            None
+        );
+    }
+
+    #[test]
+    fn keeps_higher_local_height_for_reorg_rollbacks() {
+        let required_height = Height::from(101_u32);
+        let vecs_height = Height::from(104_u32);
+        let stores_height = Height::from(103_u32);
+
+        assert_eq!(
+            recovery_starting_height(required_height, vecs_height, stores_height),
+            Some(Height::from(103_u32))
+        );
     }
 }

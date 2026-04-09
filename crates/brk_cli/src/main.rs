@@ -42,7 +42,7 @@ pub fn main() -> anyhow::Result<()> {
     {
         // Pre-run indexer if too far behind, then drop and reimport to reduce memory
         let chain_height = client.get_last_height()?;
-        let indexed_height = indexer.vecs.starting_height();
+        let indexed_height = indexer.vecs.canonical_starting_height();
         let blocks_behind = chain_height.saturating_sub(*indexed_height);
         if blocks_behind > 10_000 {
             info!("---");

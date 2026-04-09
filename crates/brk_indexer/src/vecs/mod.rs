@@ -4,7 +4,7 @@ use brk_error::Result;
 use brk_traversable::Traversable;
 use brk_types::{AddrHash, Height, OutputType, Version};
 use rayon::prelude::*;
-use vecdb::{AnyStoredVec, Database, Rw, Stamp, StorageMode};
+use vecdb::{AnyStoredVec, AnyVec, Database, Rw, Stamp, StorageMode};
 
 const PAGE_SIZE: usize = 4096;
 
@@ -124,6 +124,14 @@ impl Vecs {
         self.stamped_write(height)?;
         self.db.flush()?;
         Ok(())
+    }
+
+    pub fn canonical_starting_height(&self) -> Height {
+        if self.blocks.blockhash.len() == 0 {
+            return Height::ZERO;
+        }
+
+        Height::from(self.blocks.blockhash.stamp()).incremented()
     }
 
     pub fn starting_height(&mut self) -> Height {

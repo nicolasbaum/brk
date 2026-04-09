@@ -10,10 +10,14 @@ pub struct SyncStatus {
     pub indexed_height: Height,
     /// Height of the last computed block (series)
     pub computed_height: Height,
+    /// Lowest height that is safe for mixed indexed + computed data consumers
+    pub effective_height: Height,
     /// Height of the chain tip (from Bitcoin node)
     pub tip_height: Height,
-    /// Number of blocks behind the tip
+    /// Number of blocks the raw indexer is behind the tip
     pub blocks_behind: Height,
+    /// Number of blocks the effective data height is behind the tip
+    pub effective_blocks_behind: Height,
     /// Human-readable timestamp of the last indexed block (ISO 8601)
     pub last_indexed_at: String,
     /// Unix timestamp of the last indexed block

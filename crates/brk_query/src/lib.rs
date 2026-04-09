@@ -86,7 +86,9 @@ impl Query {
     pub fn sync_status(&self, tip_height: Height) -> SyncStatus {
         let indexed_height = self.indexed_height();
         let computed_height = self.computed_height();
+        let effective_height = indexed_height.min(computed_height);
         let blocks_behind = Height::from(tip_height.saturating_sub(*indexed_height));
+        let effective_blocks_behind = Height::from(tip_height.saturating_sub(*effective_height));
         let last_indexed_at_unix = self
             .indexer()
             .vecs
@@ -98,8 +100,10 @@ impl Query {
         SyncStatus {
             indexed_height,
             computed_height,
+            effective_height,
             tip_height,
             blocks_behind,
+            effective_blocks_behind,
             last_indexed_at: last_indexed_at_unix.to_iso8601(),
             last_indexed_at_unix,
         }

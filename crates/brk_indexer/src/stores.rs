@@ -126,6 +126,13 @@ impl Stores {
             .unwrap()
     }
 
+    pub fn canonical_starting_height(&self) -> Height {
+        self.blockhash_prefix_to_height
+            .height()
+            .map(Height::incremented)
+            .unwrap_or_default()
+    }
+
     fn iter_any(&self) -> impl Iterator<Item = &dyn AnyStore> {
         [
             &self.blockhash_prefix_to_height as &dyn AnyStore,
