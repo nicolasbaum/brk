@@ -126,6 +126,12 @@ pub enum Error {
     #[error("Authentication failed")]
     AuthFailed,
 
+    #[error("Transient RPC inconsistency: {0}")]
+    TransientRpc(String),
+
+    #[error("Reorg depth {depth} exceeds safety limit {limit} (treating as transient RPC error)")]
+    ReorgTooDeep { depth: u32, limit: u32 },
+
     // Series-specific errors
     #[error("{0}")]
     SeriesNotFound(SeriesNotFound),
@@ -173,6 +179,12 @@ impl Error {
     pub fn is_data_error(&self) -> bool {
         matches!(self, Error::VecDB(e) if e.is_data_error())
             || matches!(self, Error::VersionMismatch { .. })
+    }
+
+    /// Returns true if this RPC error looks transient and the caller can safely retry it
+    /// (e.g. connection reset, truncated JSON, inconsistent answers across calls).
+    pub fn is_transient_rpc(&self) -> bool {
+        matches!(self, Error::TransientRpc(_) | Error::ReorgTooDeep { .. })
     }
 
     /// Returns true if this network/fetch error indicates a permanent/blocking condition

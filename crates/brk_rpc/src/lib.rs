@@ -244,45 +244,83 @@ impl Client {
         self.0.send_raw_transaction(hex).map(Txid::from)
     }
 
-    /// Checks if a block is in the main chain (has positive confirmations)
+    /// Checks if a block is in the main chain.
+    ///
+    /// Uses the `confirmations` field as a fast signal, but cross-checks it with a second RPC
+    /// call (`getblockhash` at the reported height). If the two answers disagree (e.g. because
+    /// the JSON response was truncated or came from a briefly-inconsistent view), the
+    /// discrepancy is reported as a transient RPC error rather than being treated as a reorg.
     pub fn is_in_main_chain(&self, hash: &BlockHash) -> Result<bool> {
         let block_info = self.get_block_info(hash)?;
-        Ok(block_info.confirmations > 0)
+        let by_confirmations = block_info.confirmations > 0;
+
+        let authoritative_hash = self.get_block_hash(block_info.height as u64)?;
+        let by_hash = &authoritative_hash == hash;
+
+        if by_confirmations != by_hash {
+            return Err(Error::TransientRpc(format!(
+                "confirmations={} disagrees with getblockhash({})={} for {}",
+                block_info.confirmations, block_info.height, authoritative_hash, hash,
+            )));
+        }
+
+        Ok(by_hash)
     }
 
-    pub fn get_closest_valid_height(&self, hash: BlockHash) -> Result<(Height, BlockHash)> {
+    /// Walks back from `hash` until it finds the most recent ancestor that is still on the
+    /// main chain.
+    ///
+    /// `max_depth` caps how many ancestors we are willing to walk. A reorg of more than
+    /// `max_depth` blocks is extremely unlikely on mainnet (the deepest post-2013 reorg is
+    /// a handful of blocks) and is much more likely to be a transient RPC failure —
+    /// e.g. a truncated response, an out-of-sync node, or an sshfs hiccup — so the caller
+    /// should retry a few times before acting on it. In that case this returns
+    /// [`Error::ReorgTooDeep`].
+    pub fn get_closest_valid_height(
+        &self,
+        hash: BlockHash,
+        max_depth: u32,
+    ) -> Result<(Height, BlockHash)> {
         debug!("Get closest valid height...");
 
-        match self.get_block_header_info(&hash) {
-            Ok(block_info) => {
-                if self.is_in_main_chain(&hash)? {
-                    return Ok((block_info.height.into(), hash));
-                }
+        let block_info = self
+            .get_block_header_info(&hash)
+            .map_err(|_| Error::NotFound("Block hash not found in blockchain".into()))?;
 
-                let mut hash =
-                    block_info
-                        .previous_block_hash
-                        .map(BlockHash::from)
-                        .ok_or(Error::NotFound(
-                            "Genesis block has no previous block".into(),
-                        ))?;
+        if self.is_in_main_chain(&hash)? {
+            return Ok((block_info.height.into(), hash));
+        }
 
-                loop {
-                    if self.is_in_main_chain(&hash)? {
-                        let current_info = self.get_block_header_info(&hash)?;
-                        return Ok((current_info.height.into(), hash));
-                    }
+        let mut hash =
+            block_info
+                .previous_block_hash
+                .map(BlockHash::from)
+                .ok_or(Error::NotFound(
+                    "Genesis block has no previous block".into(),
+                ))?;
+        let mut depth = 1_u32;
 
-                    let info = self.get_block_header_info(&hash)?;
-                    hash = info
-                        .previous_block_hash
-                        .map(BlockHash::from)
-                        .ok_or(Error::NotFound(
-                            "Reached genesis without finding main chain".into(),
-                        ))?;
-                }
+        loop {
+            if depth > max_depth {
+                return Err(Error::ReorgTooDeep {
+                    depth,
+                    limit: max_depth,
+                });
             }
-            Err(_) => Err(Error::NotFound("Block hash not found in blockchain".into())),
+
+            if self.is_in_main_chain(&hash)? {
+                let current_info = self.get_block_header_info(&hash)?;
+                return Ok((current_info.height.into(), hash));
+            }
+
+            let info = self.get_block_header_info(&hash)?;
+            hash = info
+                .previous_block_hash
+                .map(BlockHash::from)
+                .ok_or(Error::NotFound(
+                    "Reached genesis without finding main chain".into(),
+                ))?;
+            depth += 1;
         }
     }
 

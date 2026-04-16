@@ -14,7 +14,7 @@ use brk_rpc::Client;
 use brk_types::{BlockHash, Height};
 use fjall::PersistMode;
 use parking_lot::RwLock;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use vecdb::{
     Exit, RawDBError, ReadOnlyClone, ReadableVec, Ro, Rw, StorageMode, WritableVec, unlikely,
 };
@@ -26,9 +26,22 @@ mod stores;
 mod vecs;
 
 use constants::*;
-use indexes::IndexesExt;
+use indexes::{IndexesExt, RecoveryOutcome};
 use processor::{BlockBuffers, BlockProcessor};
 use readers::Readers;
+
+/// Maximum number of blocks we're willing to walk back when resolving a reorg.
+/// Anything deeper is overwhelmingly likely to be a transient RPC issue (truncated
+/// response, briefly inconsistent node, sshfs hiccup, etc.) rather than an actual
+/// chain reorganisation, so we retry instead of acting on it.
+const REORG_SAFETY_DEPTH: u32 = 100;
+
+/// Number of times to retry `get_closest_valid_height` when the RPC layer reports a
+/// transient inconsistency (or the apparent reorg is deeper than [`REORG_SAFETY_DEPTH`]).
+const REORG_TRANSIENT_RETRIES: usize = 5;
+
+/// Delay between transient-RPC retries.
+const REORG_TRANSIENT_RETRY_DELAY: Duration = Duration::from_secs(2);
 
 pub use brk_types::Indexes;
 pub use stores::Stores;
@@ -177,18 +190,18 @@ impl Indexer {
         debug!("Last block hash found.");
 
         let (starting_indexes, prev_hash) = if let Some(hash) = last_blockhash {
-            let (height, hash) = client.get_closest_valid_height(hash)?;
+            let (height, hash) = resolve_closest_valid_height(client, hash)?;
             match Indexes::from_vecs_and_stores(height.incremented(), &mut self.vecs, &self.stores)
             {
-                Some(starting_indexes) => {
+                RecoveryOutcome::Ready(starting_indexes) => {
                     if starting_indexes.height > client.get_last_height()? {
                         info!("Up to date, nothing to index.");
                         return Ok(starting_indexes);
                     }
                     (starting_indexes, Some(hash))
                 }
-                None => {
-                    info!("Data inconsistency detected, resetting indexer...");
+                RecoveryOutcome::NeedsFullReset(reason) => {
+                    info!("Data inconsistency detected ({reason}), resetting indexer...");
                     self.full_reset()?;
                     (Indexes::default(), None)
                 }
@@ -351,4 +364,37 @@ impl Indexer {
 
         Ok(starting_indexes)
     }
+}
+
+/// Calls [`Client::get_closest_valid_height`] with a safety depth and retries a few times on
+/// transient RPC errors.
+///
+/// An "apparent reorg" deeper than [`REORG_SAFETY_DEPTH`] is almost always the result of a
+/// bad RPC response (e.g. truncated JSON over an sshfs-backed link, or a briefly-inconsistent
+/// node during restart), not an actual Bitcoin reorganisation. Acting on it would trigger a
+/// full reset and throw away weeks of indexing — so we retry a few times and only propagate
+/// the error if every attempt agrees.
+fn resolve_closest_valid_height(client: &Client, hash: BlockHash) -> Result<(Height, BlockHash)> {
+    let mut last_err = None;
+    for attempt in 0..=REORG_TRANSIENT_RETRIES {
+        match client.get_closest_valid_height(hash.clone(), REORG_SAFETY_DEPTH) {
+            Ok(v) => return Ok(v),
+            Err(err) if err.is_transient_rpc() => {
+                warn!(
+                    "Transient RPC issue while resolving closest valid height (attempt {}/{}): {err}",
+                    attempt + 1,
+                    REORG_TRANSIENT_RETRIES + 1,
+                );
+                last_err = Some(err);
+                if attempt < REORG_TRANSIENT_RETRIES {
+                    sleep(REORG_TRANSIENT_RETRY_DELAY);
+                }
+            }
+            Err(err) => return Err(err),
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| {
+        brk_error::Error::TransientRpc("exhausted retries resolving closest valid height".into())
+    }))
 }
