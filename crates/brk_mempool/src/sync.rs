@@ -31,6 +31,12 @@ const MAX_TX_FETCHES_PER_CYCLE: usize = 10_000;
 /// Minimum interval between rebuilds (milliseconds).
 const MIN_REBUILD_INTERVAL_MS: u64 = 1000;
 
+/// Baseline sleep between successful mempool sync cycles.
+const SUCCESS_POLL_INTERVAL: Duration = Duration::from_secs(1);
+
+/// Longest backoff applied after repeated mempool RPC failures.
+const MAX_ERROR_BACKOFF_SECS: u64 = 60;
+
 /// Mempool monitor.
 ///
 /// Thread-safe wrapper around `MempoolInner`. Free to clone.
@@ -116,11 +122,26 @@ impl MempoolInner {
 
     /// Start an infinite update loop with a 1 second interval.
     pub fn start(&self) {
+        let mut error_streak = 0_u32;
+
         loop {
-            if let Err(e) = self.update() {
-                error!("Error updating mempool: {}", e);
-            }
-            thread::sleep(Duration::from_secs(1));
+            let sleep_for = match self.update() {
+                Ok(()) => {
+                    error_streak = 0;
+                    SUCCESS_POLL_INTERVAL
+                }
+                Err(e) => {
+                    error_streak = error_streak.saturating_add(1);
+                    let backoff_secs = error_backoff_secs(error_streak);
+                    error!(
+                        "Error updating mempool (attempt {}, backing off {}s): {}",
+                        error_streak, backoff_secs, e
+                    );
+                    Duration::from_secs(backoff_secs)
+                }
+            };
+
+            thread::sleep(sleep_for);
         }
     }
 
@@ -257,5 +278,25 @@ impl MempoolInner {
         let snapshot = Snapshot::build(blocks, entries_slice);
 
         *self.snapshot.write() = snapshot;
+    }
+}
+
+fn error_backoff_secs(error_streak: u32) -> u64 {
+    let exponential = 1_u64 << error_streak.min(6);
+
+    exponential.min(MAX_ERROR_BACKOFF_SECS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::error_backoff_secs;
+
+    #[test]
+    fn mempool_error_backoff_grows_then_caps() {
+        assert_eq!(error_backoff_secs(1), 2);
+        assert_eq!(error_backoff_secs(2), 4);
+        assert_eq!(error_backoff_secs(5), 32);
+        assert_eq!(error_backoff_secs(6), 60);
+        assert_eq!(error_backoff_secs(10), 60);
     }
 }

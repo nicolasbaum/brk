@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fs, str::FromStr};
 
 use brk_error::Result;
 use brk_fetcher::{BinanceFutures, Fred, Yahoo};
@@ -55,6 +55,8 @@ const SERIES_MAP: &[(&str, SeriesTarget)] = &[
     ("DTWEXBGS", SeriesTarget::Other(OtherField::DollarIndex)),
     ("WALCL", SeriesTarget::Other(OtherField::FedBalanceSheet)),
 ];
+
+const MACRO_REFRESH_LOG_LABEL: &str = "macro economy remote refresh";
 
 #[derive(Clone, Copy)]
 enum SeriesTarget {
@@ -144,13 +146,20 @@ impl Vecs {
             .collect_one(prev_height)
             .unwrap_or_default();
         let date_to_day1 = build_date_to_day1(date_vec)?;
+        let today = Date::today();
+
+        if !should_refresh_remote_series(self.last_refresh_date(), today) {
+            info!("Skipping {MACRO_REFRESH_LOG_LABEL}; already attempted on {today}");
+            return Ok(());
+        }
+
+        info!("Starting {MACRO_REFRESH_LOG_LABEL} for {today}");
 
         if let Some(fred) = fred {
             for &(series_id, target) in SERIES_MAP {
                 let starting_day1 = self.starting_day1_for_target(target, starting_day1);
                 let start_date = start_date_for_day1(starting_day1);
 
-                info!("Fetching FRED series {series_id}...");
                 let observations = match fred.fetch_series(series_id, start_date) {
                     Ok(observations) => observations,
                     Err(e) => {
@@ -187,7 +196,6 @@ impl Vecs {
             let starting_day1 = self.starting_day1_for_target(target, starting_day1);
             let start_date = start_date_for_day1(starting_day1);
 
-            info!("Fetching Yahoo Finance {symbol}...");
             let observations = match yahoo.fetch_series(symbol, start_date) {
                 Ok(observations) => observations,
                 Err(e) => {
@@ -209,7 +217,6 @@ impl Vecs {
         let funding_starting_day1 = self.starting_day1_for_target(funding_target, starting_day1);
         let funding_start_date = start_date_for_day1(funding_starting_day1);
 
-        info!("Fetching Binance Futures funding rates...");
         match BinanceFutures::fetch_daily_funding_rates(funding_start_date) {
             Ok(observations) if !observations.is_empty() => {
                 let filled = forward_fill(&observations, &date_to_day1, total_day1s);
@@ -223,6 +230,21 @@ impl Vecs {
             let _lock = exit.lock();
             self.db.compact()?;
         }
+
+        self.write_last_refresh_date(today)?;
+        info!("Completed {MACRO_REFRESH_LOG_LABEL} for {today}");
+
+        Ok(())
+    }
+
+    fn last_refresh_date(&self) -> Option<Date> {
+        fs::read_to_string(&self.state_path)
+            .ok()
+            .and_then(|contents| Date::from_str(contents.trim()).ok())
+    }
+
+    fn write_last_refresh_date(&self, date: Date) -> Result<()> {
+        fs::write(&self.state_path, date.to_string())?;
 
         Ok(())
     }
@@ -397,6 +419,10 @@ fn start_date_for_day1(day1: Day1) -> Option<Date> {
     (usize::from(day1) > 0).then(|| Date::from(Day1::from(usize::from(day1).saturating_sub(1))))
 }
 
+fn should_refresh_remote_series(last_refresh_date: Option<Date>, today: Date) -> bool {
+    last_refresh_date != Some(today)
+}
+
 fn build_date_to_day1(date_vec: &impl ReadableVec<Day1, Date>) -> Result<BTreeMap<Date, Day1>> {
     let mut map = BTreeMap::new();
     for index in 0..date_vec.len() {
@@ -439,4 +465,32 @@ fn forward_fill(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::should_refresh_remote_series;
+    use brk_types::Date;
+
+    #[test]
+    fn refreshes_when_no_previous_pull_is_recorded() {
+        let today = Date::new(2026, 4, 17);
+
+        assert!(should_refresh_remote_series(None, today));
+    }
+
+    #[test]
+    fn skips_when_batch_already_attempted_today() {
+        let today = Date::new(2026, 4, 17);
+
+        assert!(!should_refresh_remote_series(Some(today), today));
+    }
+
+    #[test]
+    fn refreshes_again_on_a_new_day() {
+        let today = Date::new(2026, 4, 17);
+        let yesterday = Date::new(2026, 4, 16);
+
+        assert!(should_refresh_remote_series(Some(yesterday), today));
+    }
 }

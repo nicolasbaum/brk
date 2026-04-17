@@ -28,7 +28,9 @@ use retry::*;
 pub use source::{PriceSource, TrackedSource};
 pub use yahoo::*;
 
-const MAX_RETRIES: usize = 12 * 60; // 12 hours of retrying
+/// Cap foreground retry windows so callers fail fast instead of appearing hung for hours.
+const MAX_RETRIES: usize = 5;
+const RETRY_DELAY: Duration = Duration::from_secs(60);
 
 /// Create a shared HTTP agent with connection pooling and default timeout.
 /// Status codes are not treated as errors - callers use `checked_get` for status handling.
@@ -193,8 +195,13 @@ How to fix this:
             }
 
             if retry < MAX_RETRIES {
-                info!("All sources failed, retrying in 60s...");
-                sleep(Duration::from_secs(60));
+                info!(
+                    "All sources failed, retrying in {}s ({}/{})...",
+                    RETRY_DELAY.as_secs(),
+                    retry + 1,
+                    MAX_RETRIES
+                );
+                sleep(RETRY_DELAY);
                 self.clear_caches();
             }
         }

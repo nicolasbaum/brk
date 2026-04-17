@@ -14,6 +14,7 @@ impl Vecs {
     pub fn forced_import(parent_path: &Path, parent_version: Version) -> Result<Self> {
         let db = Database::open(&parent_path.join(super::DB_NAME))?;
         db.set_min_len(PAGE_SIZE * 1_000_000)?;
+        let state_path = parent_path.join("macro_economy_last_pull_date.txt");
 
         let version = parent_version;
 
@@ -27,6 +28,7 @@ impl Vecs {
 
         let this = Self {
             db,
+            state_path,
             interest_rates,
             money_supply,
             employment,
