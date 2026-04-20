@@ -1,0 +1,8 @@
+[Unit]
+Description=BRK silent-stall watchdog (restart brk.service if effective tip is stale)
+After=brk.service
+
+[Service]
+Type=oneshot
+EnvironmentFile=-%h/.config/brk-healthcheck.env
+ExecStart=%h/.local/bin/brk-healthcheck.sh
