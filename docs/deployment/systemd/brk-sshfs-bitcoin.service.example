@@ -1,0 +1,28 @@
+[Unit]
+Description=BRK sshfs mount of remote bitcoind blocksdir
+After=network-online.target
+Wants=network-online.target
+# Keep this unit in its OWN cgroup — separate from brk.service. A brief SSH
+# flake used to take down sshfs as a child of brk.service, which BRK mistook
+# for a reorg/crash and responded to by wiping indexed state. With the mount
+# in its own cgroup, the flake is handled transparently by sshfs's own
+# `reconnect` option or by systemd restarting just this unit.
+
+[Service]
+Type=simple
+
+# Clean up a stale mount (possibly from a previous crash) before mounting.
+ExecStartPre=/bin/bash -c 'if mountpoint -q /home/YOUR_USER/REMOTE_BLOCKSDIR_MOUNT; then fusermount -u /home/YOUR_USER/REMOTE_BLOCKSDIR_MOUNT 2>/dev/null || true; fi'
+
+# CUSTOMIZE: remote user/host and absolute path to the remote `blocks/` parent
+# directory (the one that contains `blocks/`, `chainstate/`, etc.). Run sshfs
+# in foreground (-f) so systemd supervises it directly.
+ExecStart=/usr/bin/sshfs -f REMOTE_USER@REMOTE_HOST:/absolute/path/to/bitcoin/data /home/YOUR_USER/REMOTE_BLOCKSDIR_MOUNT -o ro,reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,kernel_cache,auto_cache,dir_cache=yes,entry_timeout=60,attr_timeout=60,dcache_timeout=60,compression=no
+
+ExecStopPost=/bin/bash -c 'fusermount -u /home/YOUR_USER/REMOTE_BLOCKSDIR_MOUNT 2>/dev/null || true'
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/YOUR_USER
+
+[Install]
+WantedBy=default.target

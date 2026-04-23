@@ -1,0 +1,20 @@
+[Unit]
+Description=Bitcoin Research Kit (BRK)
+After=network-online.target brk-sshfs-bitcoin.service brk-tunnel-bitcoind.service
+Wants=network-online.target brk-sshfs-bitcoin.service brk-tunnel-bitcoind.service
+# If bitcoind is reachable directly (no sshfs / no tunnel), drop the two
+# brk-*.service deps from After= and Wants= and remove the sidecar units.
+
+[Service]
+Type=simple
+# CUSTOMIZE: path to the release build and the website assets.
+ExecStart=/bin/bash -lc '/home/YOUR_USER/brk/target/release/brk --fred-api-key "$FRED_API_KEY" --website /home/YOUR_USER/brk/website'
+Restart=on-failure
+RestartSec=10
+# CUSTOMIZE: HOME is needed by the watchdog installer and by brk's config paths.
+Environment=HOME=/home/YOUR_USER
+# CUSTOMIZE: env file holds FRED_API_KEY (and anything else secret).
+EnvironmentFile=/home/YOUR_USER/.config/systemd/user/brk.env
+
+[Install]
+WantedBy=default.target

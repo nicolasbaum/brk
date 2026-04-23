@@ -1,0 +1,22 @@
+[Unit]
+Description=BRK SSH tunnel to remote bitcoind RPC (localhost:8332)
+After=network-online.target
+Wants=network-online.target
+# As with the sshfs unit: keep this in its own cgroup so a flaky SSH link
+# does not look to BRK like the bitcoind RPC has permanently failed.
+
+[Service]
+Type=simple
+# CUSTOMIZE: REMOTE_BITCOIND_ADDR:REMOTE_BITCOIND_PORT is the bitcoind RPC
+# endpoint reachable from the remote host (often 127.0.0.1:8332 or a local
+# docker bridge address). LOCAL_PORT is what BRK's config points `rpc_url` at.
+# ExitOnForwardFailure=yes makes ssh die fast if the local port is already
+# bound, so systemd notices and restarts instead of sitting idle on a
+# half-broken tunnel.
+ExecStart=/usr/bin/ssh -N -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -L LOCAL_PORT:REMOTE_BITCOIND_ADDR:REMOTE_BITCOIND_PORT REMOTE_USER@REMOTE_HOST
+Restart=on-failure
+RestartSec=5
+Environment=HOME=/home/YOUR_USER
+
+[Install]
+WantedBy=default.target
