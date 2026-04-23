@@ -8,7 +8,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use brk_error::Result;
+use brk_error::{Error, Result};
 use brk_reader::{Reader, XORBytes};
 use brk_rpc::Client;
 use brk_types::{BlockHash, Height};
@@ -200,10 +200,15 @@ impl Indexer {
                     }
                     (starting_indexes, Some(hash))
                 }
-                RecoveryOutcome::NeedsFullReset(reason) => {
-                    info!("Data inconsistency detected ({reason}), resetting indexer...");
-                    self.full_reset()?;
-                    (Indexes::default(), None)
+                RecoveryOutcome::Unrecoverable(reason) => {
+                    // Do not call `full_reset()` here. Historically we did, and the
+                    // result was that a single 1-block reorg colliding with an
+                    // auxiliary-vec inconsistency (e.g. from a partial write after an
+                    // RPC flake) wiped the entire indexed directory and forced a
+                    // multi-day re-index. Surface the failure so the operator can
+                    // investigate instead of silently destroying data.
+                    warn!("Indexer recovery failed: {reason}");
+                    return Err(Error::Internal(reason));
                 }
             }
         } else {

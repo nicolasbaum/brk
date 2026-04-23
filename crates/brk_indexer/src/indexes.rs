@@ -1,24 +1,31 @@
 use brk_error::Result;
 use brk_types::{Height, Indexes};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 use vecdb::{AnyStoredVec, PcoVec, PcoVecValue, ReadableVec, VecIndex, VecValue, WritableVec};
 
 use crate::{Stores, Vecs};
 
+/// Maximum number of blocks to walk back looking for a self-consistent auxiliary-vec
+/// state during recovery. In practice a legitimate tip reorg is a handful of blocks
+/// and an auxiliary-vec partial-write artifact resolves within a few blocks too, so
+/// this limit is intentionally generous. If it is exceeded the on-disk state is
+/// genuinely corrupt and requires operator intervention — we surface a fatal error
+/// instead of silently wiping weeks of indexed data.
+const RECOVERY_WALKBACK_LIMIT: u32 = 1000;
+
 /// Outcome of trying to rebuild [`Indexes`] from the persisted vecs/stores.
-///
-/// The previous API returned [`Option<Indexes>`] and any `None` was treated as a
-/// "data inconsistency" triggering a full reset. That conflated two very different
-/// situations: a genuine rollback at the tip (which we should just roll back and
-/// continue from) and actual missing data (which does require a reset).
 #[derive(Debug)]
 pub enum RecoveryOutcome {
     /// Safe to continue with these starting indexes. A tip-level rollback may have
     /// happened; the caller should still invoke `rollback_if_needed`.
     Ready(Indexes),
-    /// Data is genuinely missing or inconsistent; the caller must run `full_reset`
-    /// before indexing. The `&'static str` is a short, human-readable reason.
-    NeedsFullReset(&'static str),
+    /// On-disk state is genuinely corrupt and cannot be recovered by rolling back
+    /// within [`RECOVERY_WALKBACK_LIMIT`] blocks. The caller must surface this as a
+    /// fatal error — historically we wiped the indexed directory and re-indexed from
+    /// scratch in response, but that threw away weeks of work on trivially-recoverable
+    /// inconsistencies (see Apr 2026 incident where a 1-block reorg triggered a
+    /// 945k-block reset). The `&'static str` is a short, human-readable reason.
+    Unrecoverable(&'static str),
 }
 
 /// Why a specific auxiliary vec could not satisfy a requested `starting_height`.
@@ -117,7 +124,7 @@ impl IndexesExt for Indexes {
         let Some(local_height) =
             recovery_starting_height(required_height, vecs_height, stores_height)
         else {
-            return RecoveryOutcome::NeedsFullReset(
+            return RecoveryOutcome::Unrecoverable(
                 "canonical block metadata is behind required height",
             );
         };
@@ -126,45 +133,74 @@ impl IndexesExt for Indexes {
 
         // Auxiliary vecs only have data up to their stamp. If any of them lags behind
         // `initial_target` we prefer rolling back a few more blocks over a full reset.
-        let aux_target = match auxiliary_rollback_target(vecs) {
+        let stamp_based_target = match auxiliary_rollback_target(vecs) {
             Ok(Some(cap)) => initial_target.min(cap),
             Ok(None) => initial_target,
             Err(StartingIndexError::NotInitialized) => {
-                return RecoveryOutcome::NeedsFullReset(
+                return RecoveryOutcome::Unrecoverable(
                     "an auxiliary vec is uninitialized (stamp=0) while canonical data exists",
                 );
             }
             Err(StartingIndexError::UnexpectedGap) => {
-                return RecoveryOutcome::NeedsFullReset(
+                return RecoveryOutcome::Unrecoverable(
                     "unexpected gap inspecting auxiliary vec stamps",
                 );
             }
         };
 
-        if local_height > required_height {
-            info!("Reorg detected: rolling back from {local_height} to {aux_target}");
-        } else if aux_target < initial_target {
-            info!(
-                "Auxiliary vecs lag behind canonical tip; rolling back from {initial_target} to {aux_target}",
-            );
-        }
+        // Bounded walkback: if build_indexes fails at the stamp-based target, walk
+        // back one block at a time until it succeeds. This defends against partial
+        // writes and off-by-one stamp/len mismatches in auxiliary vecs that used to
+        // trigger a full reset — a response that threw away the entire indexed
+        // directory in response to a trivially-recoverable inconsistency.
+        let mut target = stamp_based_target;
+        let mut walked_back: u32 = 0;
+        let last_err = loop {
+            match build_indexes(target, vecs) {
+                Ok(indexes) => {
+                    if local_height > required_height {
+                        info!("Reorg detected: rolling back from {local_height} to {target}");
+                    } else if target < initial_target {
+                        info!(
+                            "Auxiliary vecs lag behind canonical tip; rolling back from {initial_target} to {target}",
+                        );
+                    }
+                    if walked_back > 0 {
+                        warn!(
+                            "Recovered from auxiliary-vec inconsistency by walking back {walked_back} block(s) beyond the stamp-based rollback target",
+                        );
+                    }
+                    debug!(
+                        vecs_height = ?vecs_height,
+                        stores_height = ?stores_height,
+                        required_height = ?required_height,
+                        local_height = ?local_height,
+                        starting_height = ?target,
+                        "Resolved recovery heights from canonical block metadata",
+                    );
+                    return RecoveryOutcome::Ready(indexes);
+                }
+                Err(err) => {
+                    if walked_back >= RECOVERY_WALKBACK_LIMIT {
+                        break err;
+                    }
+                    match target.decremented() {
+                        Some(prev) => {
+                            target = prev;
+                            walked_back += 1;
+                        }
+                        None => break err,
+                    }
+                }
+            }
+        };
 
-        debug!(
-            vecs_height = ?vecs_height,
-            stores_height = ?stores_height,
-            required_height = ?required_height,
-            local_height = ?local_height,
-            starting_height = ?aux_target,
-            "Resolved recovery heights from canonical block metadata",
-        );
-
-        match build_indexes(aux_target, vecs) {
-            Ok(indexes) => RecoveryOutcome::Ready(indexes),
-            Err(StartingIndexError::NotInitialized) => RecoveryOutcome::NeedsFullReset(
-                "an auxiliary vec is uninitialized (stamp=0) while canonical data exists",
+        match last_err {
+            StartingIndexError::NotInitialized => RecoveryOutcome::Unrecoverable(
+                "an auxiliary vec remained uninitialized throughout recovery walkback",
             ),
-            Err(StartingIndexError::UnexpectedGap) => RecoveryOutcome::NeedsFullReset(
-                "unexpected gap in auxiliary vec at rollback target",
+            StartingIndexError::UnexpectedGap => RecoveryOutcome::Unrecoverable(
+                "auxiliary vec gaps persist throughout recovery walkback",
             ),
         }
     }

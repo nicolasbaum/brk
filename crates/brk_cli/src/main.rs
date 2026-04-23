@@ -44,25 +44,6 @@ pub fn main() -> anyhow::Result<()> {
     let reader = Reader::new(config.blocksdir(), &client);
 
     let mut indexer = Indexer::forced_import(&config.brkdir())?;
-
-    #[cfg(not(debug_assertions))]
-    {
-        // Pre-run indexer if too far behind, then drop and reimport to reduce memory
-        let chain_height = client.get_last_height()?;
-        let indexed_height = indexer.vecs.canonical_starting_height();
-        let blocks_behind = chain_height.saturating_sub(*indexed_height);
-        if blocks_behind > 10_000 {
-            info!("---");
-            info!("Indexing {blocks_behind} blocks before starting server...");
-            info!("---");
-            sleep(Duration::from_secs(10));
-            indexer.index(&reader, &client, &exit)?;
-            drop(indexer);
-            Mimalloc::collect();
-            indexer = Indexer::forced_import(&config.brkdir())?;
-        }
-    }
-
     let mut computer = Computer::forced_import(&config.brkdir(), &indexer, config.fetcher())?;
 
     let mempool = Mempool::new(&client);
@@ -80,6 +61,13 @@ pub fn main() -> anyhow::Result<()> {
 
     let port = config.brkport();
 
+    // Bind the HTTP server before the first indexing pass runs. The server reads
+    // from the query snapshot and will report the current `indexed_height`,
+    // `computed_height`, and `effective_height` throughout catch-up, so the
+    // watchdog (and operators) can distinguish "still catching up from cold start"
+    // from "hung" — previously the port only bound after catch-up finished, which
+    // made every multi-hour cold-start look like a crashed process and caused the
+    // watchdog to kill it mid-reindex in a self-sustaining loop.
     let future = async move {
         let server = Server::new(&query, data_path, website);
 
@@ -95,6 +83,18 @@ pub fn main() -> anyhow::Result<()> {
         .build()?;
 
     let _handle = runtime.spawn(future);
+
+    #[cfg(not(debug_assertions))]
+    {
+        let chain_height = client.get_last_height()?;
+        let indexed_height = indexer.vecs.canonical_starting_height();
+        let blocks_behind = chain_height.saturating_sub(*indexed_height);
+        if blocks_behind > 10_000 {
+            info!("---");
+            info!("Catching up {blocks_behind} blocks (server already reachable)...");
+            info!("---");
+        }
+    }
 
     loop {
         client.wait_for_synced_node()?;
