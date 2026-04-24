@@ -366,17 +366,17 @@ fn auxiliary_rollback_target(
 }
 
 fn recovery_starting_height(
-    required_height: Height,
+    _required_height: Height,
     vecs_height: Height,
     stores_height: Height,
 ) -> Option<Height> {
-    let local_height = vecs_height.min(stores_height);
-
-    if local_height < required_height {
-        return None;
-    }
-
-    Some(local_height)
+    // `min(vecs, stores)` is the highest height where both sides agree.
+    // Returning it even when it's below `required_height` lets the caller roll
+    // back to that consistent point and re-index forward; the previous
+    // `None`-on-behind behaviour crash-looped the process after a mid-rollback
+    // crash (stores committed, vecs never flushed), because recovery refused
+    // to proceed from the lower-but-consistent height.
+    Some(vecs_height.min(stores_height))
 }
 
 fn starting_index<I, T>(
@@ -419,14 +419,20 @@ mod tests {
     }
 
     #[test]
-    fn rejects_recovery_when_canonical_store_height_is_behind() {
+    fn accepts_lower_local_height_when_store_is_behind() {
+        // A mid-rollback crash can persist stores at N-1 while vecs remain at N
+        // (vecs aren't flushed until the next export). On restart, required
+        // equals the bitcoind tip, which is ahead of stores. Recovery must
+        // still succeed at `min(vecs, stores)` so the caller can truncate vecs
+        // down to the consistent height and re-index forward, rather than
+        // crash-loop.
         let required_height = Height::from(101_u32);
         let vecs_height = Height::from(101_u32);
         let stores_height = Height::from(100_u32);
 
         assert_eq!(
             recovery_starting_height(required_height, vecs_height, stores_height),
-            None
+            Some(Height::from(100_u32))
         );
     }
 

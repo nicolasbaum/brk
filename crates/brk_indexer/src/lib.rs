@@ -189,8 +189,8 @@ impl Indexer {
         //     .collect_one_at(self.vecs.blocks.blockhash.len() - 2);
         debug!("Last block hash found.");
 
-        let (starting_indexes, prev_hash) = if let Some(hash) = last_blockhash {
-            let (height, hash) = resolve_closest_valid_height(client, hash)?;
+        let starting_indexes = if let Some(hash) = last_blockhash {
+            let (height, _resolved_hash) = resolve_closest_valid_height(client, hash)?;
             match Indexes::from_vecs_and_stores(height.incremented(), &mut self.vecs, &self.stores)
             {
                 RecoveryOutcome::Ready(starting_indexes) => {
@@ -198,7 +198,7 @@ impl Indexer {
                         info!("Up to date, nothing to index.");
                         return Ok(starting_indexes);
                     }
-                    (starting_indexes, Some(hash))
+                    starting_indexes
                 }
                 RecoveryOutcome::Unrecoverable(reason) => {
                     // Do not call `full_reset()` here. Historically we did, and the
@@ -212,7 +212,7 @@ impl Indexer {
                 }
             }
         } else {
-            (Indexes::default(), None)
+            Indexes::default()
         };
         debug!("Starting indexes set.");
 
@@ -222,6 +222,13 @@ impl Indexer {
         debug!("Rollback stores done.");
         self.vecs.rollback_if_needed(&starting_indexes)?;
         debug!("Rollback vecs done.");
+        // Re-derive prev_hash from the rolled-back blockhash vec. When
+        // `from_vecs_and_stores` walks back past the resolved common ancestor
+        // to heal a partial auxiliary-vec stamp write, `starting_indexes.height`
+        // ends up lower than the height whose hash `resolve_closest_valid_height`
+        // returned. Using that stale hash would make `reader.after(...)` skip
+        // blocks, and the first `checked_push` fails with UnexpectedIndex.
+        let prev_hash: Option<BlockHash> = self.vecs.blocks.blockhash.collect_last();
         drop(lock);
 
         // Cloned because we want to return starting indexes for the computer
