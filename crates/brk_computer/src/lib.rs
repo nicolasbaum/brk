@@ -3,6 +3,7 @@
 use std::{fs, path::Path, thread, time::Instant};
 
 use brk_error::Result;
+use brk_fetcher::Fetcher;
 use brk_indexer::Indexer;
 use brk_traversable::Traversable;
 use brk_types::{Height, Version};
@@ -18,6 +19,7 @@ mod indicators;
 mod inputs;
 mod internal;
 mod investing;
+pub mod macro_economy;
 mod market;
 mod mining;
 mod outputs;
@@ -36,6 +38,7 @@ pub struct Computer<M: StorageMode = Rw> {
     pub indexes: Box<indexes::Vecs<M>>,
     pub indicators: Box<indicators::Vecs<M>>,
     pub investing: Box<investing::Vecs<M>>,
+    pub macro_economy: Box<macro_economy::Vecs<M>>,
     pub market: Box<market::Vecs<M>>,
     pub pools: Box<pools::Vecs<M>>,
     pub prices: Box<prices::Vecs<M>>,
@@ -44,12 +47,18 @@ pub struct Computer<M: StorageMode = Rw> {
     pub supply: Box<supply::Vecs<M>>,
     pub inputs: Box<inputs::Vecs<M>>,
     pub outputs: Box<outputs::Vecs<M>>,
+    #[traversable(skip)]
+    fred: Option<brk_fetcher::Fred>,
 }
 
 const VERSION: Version = Version::new(6);
 
 impl Computer {
-    pub fn forced_import(outputs_path: &Path, indexer: &Indexer) -> Result<Self> {
+    pub fn forced_import(
+        outputs_path: &Path,
+        indexer: &Indexer,
+        fetcher: Option<Fetcher>,
+    ) -> Result<Self> {
         info!("Importing computer...");
         let import_start = Instant::now();
 
@@ -207,6 +216,11 @@ impl Computer {
             )?))
         })?;
 
+        let fred = fetcher.and_then(|fetcher| fetcher.fred);
+        let macro_economy = Box::new(timed("Imported macro economy", || {
+            macro_economy::Vecs::forced_import(&computed_path, VERSION)
+        })?);
+
         info!("Total import time: {:?}", import_start.elapsed());
 
         let this = Self {
@@ -216,6 +230,7 @@ impl Computer {
             constants,
             indicators,
             investing,
+            macro_economy,
             market,
             distribution,
             supply,
@@ -225,6 +240,7 @@ impl Computer {
             inputs,
             prices,
             outputs,
+            fred,
         };
 
         Self::retain_databases(&computed_path)?;
@@ -242,6 +258,7 @@ impl Computer {
             indicators::DB_NAME,
             indexes::DB_NAME,
             investing::DB_NAME,
+            macro_economy::DB_NAME,
             market::DB_NAME,
             pools::DB_NAME,
             prices::DB_NAME,
@@ -283,6 +300,12 @@ impl Computer {
         let compute_start = Instant::now();
 
         timed("Computed indexes", || self.indexes.compute(indexer, exit))?;
+
+        let starting_lengths = indexer.safe_lengths();
+        timed("Computed macro economy", || {
+            self.macro_economy
+                .compute(self.fred.as_ref(), &self.indexes, &starting_lengths, exit)
+        })?;
 
         thread::scope(|scope| -> Result<()> {
             timed("Computed blocks", || {
@@ -496,6 +519,7 @@ impl_iter_named!(
     indicators,
     indexes,
     investing,
+    macro_economy,
     market,
     pools,
     prices,

@@ -4,6 +4,7 @@ use std::{
 };
 
 use brk_error::{Error, Result};
+use brk_fetcher::Fetcher;
 use brk_rpc::{Auth, Client};
 use brk_server::{CdnCacheMode, DEFAULT_MAX_UTXOS, DEFAULT_MAX_WEIGHT, Website};
 use brk_types::Port;
@@ -32,6 +33,12 @@ pub struct Config {
 
     #[serde(default)]
     maxutxos: Option<usize>,
+
+    #[serde(default)]
+    fetch: Option<bool>,
+
+    #[serde(default)]
+    fred_api_key: Option<String>,
 
     #[serde(default)]
     bitcoindir: Option<String>,
@@ -85,6 +92,12 @@ impl Config {
         if let Some(v) = config_args.maxutxos {
             config.maxutxos = Some(v);
         }
+        if let Some(v) = config_args.fetch {
+            config.fetch = Some(v);
+        }
+        if let Some(v) = config_args.fred_api_key {
+            config.fred_api_key = Some(v);
+        }
         if let Some(v) = config_args.bitcoindir {
             config.bitcoindir = Some(v);
         }
@@ -137,6 +150,10 @@ impl Config {
                 }
                 Long("maxutxos") => {
                     config.maxutxos = Some(parser.value().unwrap().parse().unwrap())
+                }
+                Long("fetch") => config.fetch = Some(parser.value().unwrap().parse().unwrap()),
+                Long("fred-api-key") => {
+                    config.fred_api_key = Some(parser.value().unwrap().parse().unwrap())
                 }
                 Long("bitcoindir") => {
                     config.bitcoindir = Some(parser.value().unwrap().parse().unwrap())
@@ -211,6 +228,16 @@ impl Config {
             "    --maxutxos {}        Server cap on UTXOs per address; /api/address/{{addr}}/utxo errors past the limit {}",
             "<COUNT>".bright_black(),
             format!("[{}]", DEFAULT_MAX_UTXOS).bright_black()
+        );
+        println!(
+            "    --fetch {}           Fetch prices {}",
+            "<BOOL>".bright_black(),
+            "[true]".bright_black()
+        );
+        println!(
+            "    --fred-api-key {}    FRED API key {}",
+            "<KEY>".bright_black(),
+            "[$FRED_API_KEY]".bright_black()
         );
         println!();
         println!(
@@ -371,6 +398,10 @@ Finally, you can run the program with '-h' for help."
             .map_or_else(default_brk_path, |s| fix_user_path(s.as_ref()))
     }
 
+    pub fn harsdir(&self) -> PathBuf {
+        self.brkdir().join("hars")
+    }
+
     fn path_cookiefile(&self) -> PathBuf {
         self.rpccookiefile.as_ref().map_or_else(
             || self.bitcoindir().join(".cookie"),
@@ -400,5 +431,20 @@ Finally, you can run the program with '-h' for help."
 
     pub fn brkport(&self) -> Option<Port> {
         self.brkport
+    }
+
+    pub fn fetch(&self) -> bool {
+        self.fetch.is_none_or(|b| b)
+    }
+
+    pub fn fred_api_key(&self) -> Option<String> {
+        self.fred_api_key
+            .clone()
+            .or_else(|| std::env::var("FRED_API_KEY").ok())
+    }
+
+    pub fn fetcher(&self) -> Option<Fetcher> {
+        self.fetch()
+            .then(|| Fetcher::import(Some(self.harsdir().as_path()), self.fred_api_key()).unwrap())
     }
 }

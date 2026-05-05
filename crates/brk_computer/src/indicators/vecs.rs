@@ -20,6 +20,7 @@ pub struct Vecs<M: StorageMode = Rw> {
     pub gini: PercentPerBlock<BasisPoints16, M>,
     pub rhodl_ratio: RatioPerBlock<BasisPoints32, M>,
     pub thermo_cap_multiple: RatioPerBlock<BasisPoints32, M>,
+    pub mvrv_z_score: PerBlock<StoredF32, M>,
     pub coindays_destroyed_supply_adj: PerBlock<StoredF32, M>,
     pub coinyears_destroyed_supply_adj: PerBlock<StoredF32, M>,
     pub dormancy: DormancyVecs<M>,

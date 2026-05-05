@@ -12,6 +12,7 @@ exclude = ["examples/"]
 bitcoin = { workspace = true }
 brk_error = { workspace = true, features = ["vecdb"] }
 brk_cohort = { workspace = true }
+brk_fetcher = { workspace = true }
 brk_indexer = { workspace = true }
 brk_oracle = { workspace = true }
 brk_logger = { workspace = true }

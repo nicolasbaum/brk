@@ -29,6 +29,7 @@ impl Vecs {
         let rhodl_ratio = RatioPerBlock::forced_import_raw(&db, "rhodl_ratio", v, indexes)?;
         let thermo_cap_multiple =
             RatioPerBlock::forced_import_raw(&db, "thermo_cap_multiple", v, indexes)?;
+        let mvrv_z_score = PerBlock::forced_import(&db, "mvrv_z_score", v, indexes)?;
         let coindays_destroyed_supply_adj =
             PerBlock::forced_import(&db, "coindays_destroyed_supply_adj", v, indexes)?;
         let coinyears_destroyed_supply_adj =
@@ -49,6 +50,7 @@ impl Vecs {
             gini,
             rhodl_ratio,
             thermo_cap_multiple,
+            mvrv_z_score,
             coindays_destroyed_supply_adj,
             coinyears_destroyed_supply_adj,
             dormancy,

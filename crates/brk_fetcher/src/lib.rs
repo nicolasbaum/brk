@@ -9,18 +9,24 @@ use tracing::{info, warn};
 use ureq::Agent;
 
 mod binance;
+mod binance_futures;
 mod brk;
+mod fred;
 mod kraken;
 mod ohlc;
 mod retry;
 mod source;
+mod yahoo;
 
 pub use binance::*;
+pub use binance_futures::*;
 pub use brk::*;
+pub use fred::*;
 pub use kraken::*;
 pub use ohlc::compute_ohlc_from_range;
 use retry::*;
 pub use source::{PriceSource, TrackedSource};
+pub use yahoo::*;
 
 const MAX_RETRIES: usize = 12 * 60; // 12 hours of retrying
 
@@ -55,19 +61,40 @@ pub struct Fetcher {
     pub binance: TrackedSource<Binance>,
     pub kraken: TrackedSource<Kraken>,
     pub brk: TrackedSource<BRK>,
+    pub fred: Option<Fred>,
 }
 
 impl Fetcher {
-    pub fn import(hars_path: Option<&Path>) -> Result<Self> {
-        Self::new(hars_path)
+    pub fn import(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
+        Self::new(hars_path, fred_api_key)
     }
 
-    pub fn new(hars_path: Option<&Path>) -> Result<Self> {
+    pub fn new(hars_path: Option<&Path>, fred_api_key: Option<String>) -> Result<Self> {
         let agent = new_agent(30);
+        let fred = match fred_api_key {
+            Some(api_key) if api_key.trim().is_empty() => {
+                warn!(
+                    "FRED fetcher disabled: configured API key is empty. Set --fred-api-key or FRED_API_KEY to enable FRED-backed macro series."
+                );
+                None
+            }
+            Some(api_key) => {
+                info!("FRED fetcher initialized");
+                Some(Fred::new(agent.clone(), api_key))
+            }
+            None => {
+                warn!(
+                    "FRED fetcher disabled: no API key configured. Set --fred-api-key or FRED_API_KEY to enable FRED-backed macro series."
+                );
+                None
+            }
+        };
+
         Ok(Self {
             binance: TrackedSource::new(Binance::new_with_agent(hars_path, agent.clone())),
             kraken: TrackedSource::new(Kraken::new_with_agent(agent.clone())),
             brk: TrackedSource::new(BRK::new_with_agent(agent.clone())),
+            fred,
             agent,
         })
     }
