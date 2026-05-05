@@ -14,11 +14,13 @@ use brk_mempool::Mempool;
 use brk_query::AsyncQuery;
 use brk_reader::Reader;
 use brk_server::{Server, ServerConfig};
-use tracing::info;
+use tracing::{info, warn};
 use vecdb::Exit;
 
 mod config;
 mod paths;
+#[cfg(unix)]
+mod watchdog;
 
 use crate::{config::Config, paths::*};
 
@@ -26,6 +28,11 @@ pub fn main() -> anyhow::Result<()> {
     fs::create_dir_all(dot_brk_path())?;
 
     brk_logger::init(Some(&dot_brk_log_path()))?;
+
+    #[cfg(unix)]
+    if let Err(err) = watchdog::install_or_update() {
+        warn!("Failed to install BRK watchdog: {err}");
+    }
 
     let config = Config::import()?;
 

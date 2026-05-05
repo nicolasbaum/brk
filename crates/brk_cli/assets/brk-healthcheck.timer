@@ -1,0 +1,11 @@
+[Unit]
+Description=Run BRK silent-stall watchdog every 5 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Persistent=true
+Unit=brk-healthcheck.service
+
+[Install]
+WantedBy=timers.target
