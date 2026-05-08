@@ -11,7 +11,7 @@ use brk_types::{
 };
 use fjall::{Database, PersistMode};
 use rayon::prelude::*;
-use tracing::{debug, info};
+use tracing::{debug, error};
 use vecdb::{AnyVec, ReadableVec, VecIndex};
 
 use crate::{Lengths, constants::DUPLICATE_TXID_PREFIXES};
@@ -31,24 +31,23 @@ pub struct Stores {
 
 impl Stores {
     pub fn forced_import(parent: &Path, version: Version) -> Result<Self> {
-        Self::forced_import_inner(parent, version, true)
-    }
-
-    fn forced_import_inner(parent: &Path, version: Version, can_retry: bool) -> Result<Self> {
         let pathbuf = parent.join("stores");
         let path = pathbuf.as_path();
 
         fs::create_dir_all(&pathbuf)?;
 
-        let database = match brk_store::open_database(path) {
-            Ok(database) => database,
-            Err(err) if can_retry => {
-                info!("Failed to open stores at {path:?}: {err:?}, deleting and retrying");
-                fs::remove_dir_all(path)?;
-                return Self::forced_import_inner(parent, version, false);
-            }
-            Err(err) => return Err(err.into()),
-        };
+        // Refuse to wipe the stores dir on open failure. A fjall
+        // checksum/journal error here usually means the keyspace was left
+        // partially written by an earlier panic; silently nuking it discards
+        // the entire address-index keyspace, after which `vecs.next_height()`
+        // and `stores.next_height()` diverge and the indexer's bounded
+        // walkback can never converge (see 2026-05-06 incident).
+        let database = brk_store::open_database(path).map_err(|err| {
+            error!(
+                "Failed to open stores at {path:?}: {err:?}. Refusing to wipe brk-data; operator must investigate."
+            );
+            err
+        })?;
 
         let database_ref = &database;
 
