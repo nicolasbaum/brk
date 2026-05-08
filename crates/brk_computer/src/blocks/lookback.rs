@@ -323,18 +323,35 @@ impl Vecs {
         } else {
             Height::ZERO
         };
-        let mut cursor = Cursor::new(&indexes.timestamp.monotonic);
+        let monotonic = &indexes.timestamp.monotonic;
+        let mut cursor = Cursor::new(monotonic);
         cursor.advance(prev.to_usize());
         let mut prev_ts = cursor.next().unwrap();
         Ok(field.compute_transform(
             starting_height,
-            &indexes.timestamp.monotonic,
+            monotonic,
             |(h, t, ..)| {
                 while expired(t, prev_ts) {
                     prev.increment();
                     prev_ts = cursor.next().unwrap();
                     if prev > h {
-                        unreachable!()
+                        // The stored field entry at resume_from-1 pointed
+                        // past the current recovery target. This happens
+                        // when a downstream stamp wasn't truncated in
+                        // lockstep with an indexer walk-back
+                        // (auxiliary-vec inconsistency recovery path). The
+                        // semantic answer for the rolling start at height
+                        // h cannot exceed h, so clamp; re-seat the cursor
+                        // at h so subsequent iterations advance from a
+                        // coherent position. The boundary entry (h, h)
+                        // is written instead of the natural ~h-k value —
+                        // a one-block artifact, accepted in exchange for
+                        // not aborting recovery.
+                        prev = h;
+                        cursor = Cursor::new(monotonic);
+                        cursor.advance(prev.to_usize());
+                        prev_ts = cursor.next().unwrap();
+                        break;
                     }
                 }
                 (h, prev)
