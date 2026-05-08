@@ -63,6 +63,21 @@ impl StoreMeta {
         &self.pathbuf
     }
 
+    /// Returns the path of the on-disk height stamp file. Intended for
+    /// `Send` closures that need to write the stamp after a separate
+    /// durable-data step (see `Store::take_pending_ingest`); other callers
+    /// should prefer `export()` / `export_if_needed()`.
+    pub fn path_height_buf(&self) -> PathBuf {
+        self.path_height()
+    }
+
+    /// Updates the in-memory stamp without touching the on-disk file.
+    /// Used to claim a logical height before the disk-write step that
+    /// `path_height_buf()` enables.
+    pub fn set_height_in_memory(&mut self, height: Height) {
+        self.height = Some(height);
+    }
+
     fn path_version(&self) -> PathBuf {
         Self::path_version_(&self.pathbuf)
     }

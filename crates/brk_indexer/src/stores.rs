@@ -4,7 +4,7 @@ use rustc_hash::FxHashSet;
 
 use brk_cohort::ByAddrType;
 use brk_error::Result;
-use brk_store::{AnyStore, Kind, Mode, Store};
+use brk_store::{AnyStore, Kind, Mode, PendingIngest, Store};
 use brk_types::{
     AddrHash, AddrIndexOutPoint, AddrIndexTxIndex, BlockHashPrefix, Height, OutPoint, OutputType,
     TxIndex, TxOutIndex, TxidPrefix, TypeIndex, Unit, Version, Vout,
@@ -171,32 +171,45 @@ impl Stores {
         )
     }
 
+    /// Commit-with-stamp in three ordered phases so the on-disk stamp
+    /// never claims coverage of fjall data that hasn't been fsynced yet:
+    /// (1) write data into fjall, (2) persist the fjall journal,
+    /// (3) advance the per-store stamp files. A kill between (2) and (3)
+    /// leaves stamps lagging data, which the indexer's bounded walkback
+    /// can recover from cleanly.
     pub fn commit(&mut self, height: Height) -> Result<()> {
         let i = Instant::now();
         self.par_iter_any_mut()
-            .try_for_each(|store| store.commit(height))?;
-        debug!("Stores committed in {:?}", i.elapsed());
+            .try_for_each(|store| store.ingest_pending())?;
+        debug!("Stores ingested in {:?}", i.elapsed());
 
         let i = Instant::now();
         self.db.persist(PersistMode::SyncData)?;
         debug!("Stores persisted in {:?}", i.elapsed());
 
+        let i = Instant::now();
+        self.par_iter_any_mut()
+            .try_for_each(|store| store.export_meta_if_needed(height))?;
+        debug!("Stores stamped in {:?}", i.elapsed());
+
         Ok(())
     }
 
-    /// Takes all pending puts/dels from every store and returns closures
-    /// that can ingest them on a background thread.
-    #[allow(clippy::type_complexity)]
+    /// Takes all pending puts/dels from every store and returns the
+    /// per-store `PendingIngest` handles. The caller must run every
+    /// `ingest` closure first, then `db.persist(SyncData)` once at the
+    /// database level, then every `finalize_stamp` closure — see
+    /// `Indexer::index_` end-of-cycle for the canonical ordering.
     pub fn take_all_pending_ingests(
         &mut self,
         height: Height,
-    ) -> Result<Vec<Box<dyn FnOnce() -> Result<()> + Send>>> {
+    ) -> Result<Vec<PendingIngest>> {
         let h = height;
         let mut tasks = Vec::new();
 
         macro_rules! take {
             ($store:expr) => {
-                tasks.extend($store.take_pending_ingest(h)?);
+                tasks.push($store.take_pending_ingest(h)?);
             };
         }
 
@@ -239,9 +252,17 @@ impl Stores {
         self.rollback_outputs_and_inputs(vecs, starting_lengths);
 
         let rollback_height = starting_lengths.height.decremented().unwrap_or_default();
+
+        // Three-phase rollback commit: write tombstones into fjall, persist
+        // the journal, then overwrite the on-disk stamp to the rollback
+        // target. `export_meta` (not `_if_needed`) is used because the
+        // rollback intentionally moves the stamp DOWN, which the
+        // `_if_needed` predicate would refuse.
+        self.par_iter_any_mut()
+            .try_for_each(|store| store.ingest_pending())?;
+        self.db.persist(PersistMode::SyncData)?;
         self.par_iter_any_mut()
             .try_for_each(|store| store.export_meta(rollback_height))?;
-        self.commit(rollback_height)?;
 
         Ok(())
     }

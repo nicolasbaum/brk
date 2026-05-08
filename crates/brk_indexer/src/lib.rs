@@ -386,25 +386,50 @@ impl Indexer {
             db.bg_sleep(Duration::from_secs(3));
 
             info!("Exporting...");
-            let i = Instant::now();
+            let total_start = Instant::now();
 
-            if !tasks.is_empty() {
-                let i = Instant::now();
-                for task in tasks {
-                    task().map_err(vecdb::RawDBError::other)?;
-                }
-                debug!("Stores committed in {:?}", i.elapsed());
+            // Three-phase ordering invariant: store data lands in fjall
+            // first, then the journal is fsynced, then the on-disk stamp
+            // files advance. A kill at any point leaves disk stamps
+            // lagging data, never ahead of it — which is what the
+            // bounded walkback recovery in `index_` can clean up safely.
+            // The earlier design wrote stamps inside `take_pending_ingest`
+            // *before* the bg ingest ran, which meant a process kill
+            // mid-bg left the store claiming coverage of fjall data that
+            // had never landed; the next cycle then hit
+            // `UnknownTxid: store_result=None` on replay.
+            let mut ingests = Vec::with_capacity(tasks.len());
+            let mut finalizers = Vec::with_capacity(tasks.len());
+            let mut any_data = false;
+            for t in tasks {
+                any_data |= t.has_data;
+                ingests.push(t.ingest);
+                finalizers.push(t.finalize_stamp);
+            }
 
-                let i = Instant::now();
+            let ingest_start = Instant::now();
+            for ingest in ingests {
+                ingest().map_err(vecdb::RawDBError::other)?;
+            }
+            debug!("Stores ingested in {:?}", ingest_start.elapsed());
+
+            if any_data {
+                let persist_start = Instant::now();
                 fjall_db
                     .persist(PersistMode::SyncData)
                     .map_err(RawDBError::other)?;
-                debug!("Stores persisted in {:?}", i.elapsed());
+                debug!("Stores persisted in {:?}", persist_start.elapsed());
             }
+
+            let stamp_start = Instant::now();
+            for finalize in finalizers {
+                finalize().map_err(vecdb::RawDBError::other)?;
+            }
+            debug!("Stores stamped in {:?}", stamp_start.elapsed());
 
             db.compact()?;
 
-            info!("Exported in {:?}", i.elapsed());
+            info!("Exported in {:?}", total_start.elapsed());
             Ok(())
         });
 

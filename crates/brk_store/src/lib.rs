@@ -29,6 +29,27 @@ pub fn open_database(path: &Path) -> fjall::Result<Database> {
         .open()
 }
 
+type BoxedTask = Box<dyn FnOnce() -> Result<()> + Send>;
+
+/// A two-phase commit handle returned from `Store::take_pending_ingest`.
+///
+/// Run `ingest` first to write the data into fjall, then `db.persist(SyncData)`
+/// at the database level, then `finalize_stamp` to advance the on-disk
+/// height marker. Crash recovery is tolerant of stopping after any one of
+/// these phases because the disk stamp can never claim coverage of data
+/// that was not yet durable.
+pub struct PendingIngest {
+    /// Whether the original buffers contained any puts/dels. `false`
+    /// means `ingest` is a no-op closure; callers can still skip the
+    /// `db.persist` step in that case if no other store has data.
+    pub has_data: bool,
+    /// Writes the buffered puts/dels into the keyspace.
+    pub ingest: BoxedTask,
+    /// Writes the on-disk height stamp file. Caller must have run
+    /// `ingest` and persisted the database before invoking this.
+    pub finalize_stamp: BoxedTask,
+}
+
 #[derive(Clone)]
 pub struct Store<K, V> {
     meta: StoreMeta,
@@ -199,32 +220,85 @@ where
         }
     }
 
-    /// Takes buffered puts/dels and returns a closure that ingests them into the keyspace.
-    /// The store is left with empty buffers, ready for the next batch.
+    /// Takes buffered puts/dels and returns a `PendingIngest` whose two
+    /// phases are intended to run with a `db.persist(SyncData)` between
+    /// them, ensuring the on-disk stamp never advances past data that
+    /// isn't yet durable. The store is left with empty buffers, ready
+    /// for the next batch.
+    ///
+    /// This replaces an earlier sync-stamp-then-async-ingest design under
+    /// which a process kill between the stamp write and the background
+    /// ingest left the store claiming coverage of fjall data that never
+    /// landed — surfacing as `UnknownTxid: store_result=None` once the
+    /// indexer crossed that height again on replay.
     #[allow(clippy::type_complexity)]
-    pub fn take_pending_ingest(
-        &mut self,
-        height: Height,
-    ) -> Result<Option<Box<dyn FnOnce() -> Result<()> + Send>>>
+    pub fn take_pending_ingest(&mut self, height: Height) -> Result<PendingIngest>
     where
         K: Send + 'static,
         V: Send + 'static,
         for<'a> ByteView: From<&'a K> + From<&'a V>,
     {
-        self.export_meta_if_needed(height)?;
+        let puts = mem::take(&mut self.puts);
+        let dels = mem::take(&mut self.dels);
 
+        let needs_disk_stamp = !self.has(height);
+        if needs_disk_stamp {
+            // Update the in-memory stamp eagerly so the next cycle's
+            // consistency check sees this height as logically claimed;
+            // the on-disk file is written by `finalize_stamp` only after
+            // the caller has persisted fjall.
+            self.meta.set_height_in_memory(height);
+        }
+
+        let keyspace = self.keyspace.clone();
+        let has_data = !(puts.is_empty() && dels.is_empty());
+
+        let ingest: BoxedTask = if has_data {
+            Box::new(move || Self::ingest(&keyspace, puts.iter(), dels.iter()))
+        } else {
+            Box::new(|| Ok(()))
+        };
+
+        let finalize_stamp: BoxedTask = if needs_disk_stamp {
+            let height_path = self.meta.path_height_buf();
+            Box::new(move || {
+                height.write(&height_path)?;
+                Ok(())
+            })
+        } else {
+            Box::new(|| Ok(()))
+        };
+
+        Ok(PendingIngest {
+            has_data,
+            ingest,
+            finalize_stamp,
+        })
+    }
+
+    /// Commits the in-memory puts/dels into fjall without writing the
+    /// stamp. Pair with `db.persist(SyncData)` and then `export_meta` /
+    /// `export_meta_if_needed` so the on-disk stamp lags durable data,
+    /// not leads it.
+    pub fn ingest_pending(&mut self) -> Result<()>
+    where
+        for<'a> ByteView: From<&'a K> + From<&'a V>,
+    {
         let puts = mem::take(&mut self.puts);
         let dels = mem::take(&mut self.dels);
 
         if puts.is_empty() && dels.is_empty() {
-            return Ok(None);
+            return Ok(());
         }
 
-        let keyspace = self.keyspace.clone();
+        Self::ingest(&self.keyspace, puts.iter(), dels.iter())?;
 
-        Ok(Some(Box::new(move || {
-            Self::ingest(&keyspace, puts.iter(), dels.iter())
-        })))
+        if !self.caches.is_empty() {
+            self.caches.pop();
+            self.caches.insert(0, puts);
+        }
+
+        Ok(())
     }
 
     #[inline]
@@ -359,23 +433,19 @@ where
         self.meta.version()
     }
 
+    fn ingest_pending(&mut self) -> Result<()> {
+        self.ingest_pending()
+    }
+
+    /// Per-store ingest + stamp in the correct order. Note this does NOT
+    /// call `db.persist(SyncData)`; that's the multi-store caller's job
+    /// (see `Stores::commit`), so the stamp written here can still race
+    /// the persist if `commit` is invoked outside that orchestration.
+    /// Prefer `ingest_pending` + (caller persists) + `export_meta_if_needed`
+    /// when correctness across kills matters.
     fn commit(&mut self, height: Height) -> Result<()> {
+        self.ingest_pending()?;
         self.export_meta_if_needed(height)?;
-
-        let puts = mem::take(&mut self.puts);
-        let dels = mem::take(&mut self.dels);
-
-        if puts.is_empty() && dels.is_empty() {
-            return Ok(());
-        }
-
-        Self::ingest(&self.keyspace, puts.iter(), dels.iter())?;
-
-        if !self.caches.is_empty() {
-            self.caches.pop();
-            self.caches.insert(0, puts);
-        }
-
         Ok(())
     }
 }
