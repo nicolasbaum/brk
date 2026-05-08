@@ -131,7 +131,18 @@ impl Indexer {
         exit: &Exit,
         check_collisions: bool,
     ) -> Result<()> {
+        // Silent-stall observability: if the previous cycle's background
+        // export is still running when a new block arrives,
+        // sync_bg_tasks blocks here without producing any log output —
+        // externally indistinguishable from a deadlocked indexer. Surface
+        // the wait so the watchdog signature can tell "slow export"
+        // apart from a real wedge.
+        let bg_wait_start = Instant::now();
         self.vecs.db.sync_bg_tasks()?;
+        let bg_waited = bg_wait_start.elapsed();
+        if bg_waited > Duration::from_millis(100) {
+            info!("Waited {bg_waited:?} for previous export to finish");
+        }
 
         self.check_xor_bytes(reader)?;
 
@@ -427,7 +438,9 @@ impl Indexer {
             }
             debug!("Stores stamped in {:?}", stamp_start.elapsed());
 
+            let compact_start = Instant::now();
             db.compact()?;
+            debug!("Vecs compacted in {:?}", compact_start.elapsed());
 
             info!("Exported in {:?}", total_start.elapsed());
             Ok(())
