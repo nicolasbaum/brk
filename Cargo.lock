@@ -3296,8 +3296,6 @@ checksum = "8f54a172d0620933a27a4360d3db3e2ae0dd6cceae9730751a036bbf182c4b23"
 [[package]]
 name = "vecdb"
 version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b66ff235ce524e97c0d2a8e386fe842b6939016b90ed732844cd91e0337bd5e1"
 dependencies = [
  "itoa",
  "libc",

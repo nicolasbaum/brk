@@ -88,6 +88,11 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 ureq = { version = "3.3.0", features = ["json"] }
 vecdb = { version = "0.10.3", features = ["derive", "serde_json", "pco", "schemars"] }
 # vecdb = { path = "../anydb/crates/vecdb", features = ["derive", "serde_json", "pco", "schemars"] }
+# NOTE: vecdb is routed through vendor-vecdb/ via [patch.crates-io] below to
+# carry a defensive OOB guard in lazy/agg/sparse.rs. Drop the patch (and
+# vendor-vecdb/) once upstream vecdb ships an equivalent fix. See
+# vendor-vecdb/src/variants/lazy/agg/sparse.rs and prior history at
+# commit 0fad27f8 ("vendor(vecdb): pin 0.10.2 with sparse aggregation OOB guard").
 
 [workspace.metadata.release]
 shared-version = true
@@ -102,3 +107,6 @@ ci = "github"
 allow-dirty = ["ci"]
 installers = []
 targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"]
+
+[patch.crates-io]
+vecdb = { path = "vendor-vecdb" }
