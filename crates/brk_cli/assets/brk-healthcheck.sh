@@ -2,22 +2,28 @@
 # Managed by BRK.
 # Optional overrides can be placed in ~/.config/brk-healthcheck.env.
 #
-# BRK has two progress signals that can advance independently:
-#   - indexed_height: the raw indexer's tip (advances quickly block-by-block)
+# BRK has three progress signals that can advance independently:
+#   - indexed_height:  the raw indexer's tip (advances quickly block-by-block).
+#   - computed_height: the computer's tip (advances during the long compute
+#                      phase, when the indexer is otherwise idle waiting on a
+#                      new block).
 #   - effective_height: how far the computed-series processing has caught up
+#                       (older field name; some builds omit it, in which case
+#                       the API returns 0 here — treat absence as "use the
+#                       other two signals").
 #
-# A healthy BRK may legitimately sit at a single effective_height for longer
-# than a single watchdog poll interval while compute batches catch up or while
-# aux-vec compaction runs. The watchdog treats forward progress at EITHER
-# signal as alive, and only restarts when BOTH are stalled for several
-# consecutive polls. This avoids the failure mode where the watchdog would
-# kill a perfectly-healthy indexer just because compute hadn't moved between
+# A healthy BRK may legitimately sit at a single signal for longer than a poll
+# interval — e.g. indexed_height freezes while the compute phase walks through
+# the chain. Treat forward progress at ANY of the three signals as alive and
+# only restart when ALL three are stalled for several consecutive polls. This
+# avoids the failure mode where the watchdog killed a perfectly-healthy BRK
+# during a slow compute cycle just because indexed_height hadn't moved between
 # two 5-minute polls.
 #
 # State: $XDG_RUNTIME_DIR/brk-healthcheck.state holds:
-#   <prev_effective_height> <prev_indexed_height> <consecutive_bad_polls>
-# Older 2-field states (<prev_effective_height> <bad_polls>) are also accepted
-# for backward-compatibility across upgrades.
+#   <prev_effective_height> <prev_indexed_height> <prev_computed_height> <consecutive_bad_polls>
+# Older 3-field (<eff> <indexed> <bad_polls>) and 2-field (<eff> <bad_polls>)
+# state formats are still accepted for backward-compatibility across upgrades.
 
 set -euo pipefail
 
@@ -34,6 +40,7 @@ log() { echo "[brk-healthcheck] $*"; }
 load_state() {
     prev_effective_height=0
     prev_indexed_height=0
+    prev_computed_height=0
     bad_polls=0
 
     if [[ -f "$STATE_FILE" ]]; then
@@ -43,7 +50,14 @@ load_state() {
         # shellcheck disable=SC2206
         fields=( $line )
         case "${#fields[@]}" in
+            4)
+                prev_effective_height="${fields[0]}"
+                prev_indexed_height="${fields[1]}"
+                prev_computed_height="${fields[2]}"
+                bad_polls="${fields[3]}"
+                ;;
             3)
+                # Legacy 3-field format from BRK 0.3.0-beta.9 and earlier.
                 prev_effective_height="${fields[0]}"
                 prev_indexed_height="${fields[1]}"
                 bad_polls="${fields[2]}"
@@ -58,11 +72,12 @@ load_state() {
 
     prev_effective_height="${prev_effective_height:-0}"
     prev_indexed_height="${prev_indexed_height:-0}"
+    prev_computed_height="${prev_computed_height:-0}"
     bad_polls="${bad_polls:-0}"
 }
 
 save_state() {
-    printf '%s %s %s\n' "$1" "$2" "$3" > "$STATE_FILE"
+    printf '%s %s %s %s\n' "$1" "$2" "$3" "$4" > "$STATE_FILE"
 }
 
 service_start_unix() {
@@ -88,9 +103,10 @@ record_bad_poll() {
     local reason="$1"
     local effective="$2"
     local indexed="$3"
+    local computed="$4"
 
     bad_polls=$(( bad_polls + 1 ))
-    save_state "$effective" "$indexed" "$bad_polls"
+    save_state "$effective" "$indexed" "$computed" "$bad_polls"
 
     if (( bad_polls < CONSECUTIVE_BAD_POLLS )); then
         log "BAD POLL ${bad_polls}/${CONSECUTIVE_BAD_POLLS}: $reason"
@@ -98,6 +114,17 @@ record_bad_poll() {
     fi
 
     restart_brk "$reason"
+}
+
+# Forward progress on any of the three signals counts as alive. Most
+# importantly, computed_height advances during the long compute phase when
+# indexed_height is otherwise frozen — a previous version of this script
+# tracked only effective_height + indexed_height and restarted BRK mid-compute
+# because the indexer hadn't written a new stamp in 20 minutes.
+is_progressing() {
+    (( effective_height > prev_effective_height \
+       || indexed_height > prev_indexed_height \
+       || computed_height > prev_computed_height ))
 }
 
 load_state
@@ -115,7 +142,8 @@ fi
 
 response="$(curl -sS -m 10 "${BRK_URL}/api/server/sync" || true)"
 if [[ -z "$response" ]]; then
-    record_bad_poll "BRK /api/server/sync unreachable" "$prev_effective_height" "$prev_indexed_height"
+    record_bad_poll "BRK /api/server/sync unreachable" \
+        "$prev_effective_height" "$prev_indexed_height" "$prev_computed_height"
 fi
 
 parsed="$(
@@ -136,7 +164,8 @@ print(
 read -r effective_height effective_blocks_behind indexed_height computed_height last_unix <<< "$parsed"
 
 if [[ -z "${effective_height:-}" || -z "${last_unix:-}" || "$last_unix" == "0" ]]; then
-    record_bad_poll "/api/server/sync returned malformed data" "$prev_effective_height" "$prev_indexed_height"
+    record_bad_poll "/api/server/sync returned malformed data" \
+        "$prev_effective_height" "$prev_indexed_height" "$prev_computed_height"
 fi
 
 tip_age=$(( now - last_unix ))
@@ -144,33 +173,32 @@ tip_age=$(( now - last_unix ))
 # Silent-stall guard. BRK's effective_blocks_behind self-report can drop to 0
 # when its tip-fetcher dies (it no longer knows bitcoind is ahead). The
 # wall-clock age of last_indexed_at is the only reliable witness in that
-# state. Require both stale tip AND no height advance this poll, so natural
-# >threshold inter-block gaps don't flap the watchdog.
+# state. Require both stale tip AND no height advance this poll across all
+# three signals, so natural >threshold inter-block gaps don't flap the
+# watchdog and slow compute phases aren't mistaken for stalls.
 if (( tip_age > TIP_AGE_THRESHOLD_SECS )); then
-    if (( effective_height > prev_effective_height || indexed_height > prev_indexed_height )); then
-        save_state "$effective_height" "$indexed_height" 0
-        log "TIP STALE BUT PROGRESSING: tip_age=${tip_age}s effective=${prev_effective_height}→${effective_height} indexed=${prev_indexed_height}→${indexed_height}"
+    if is_progressing; then
+        save_state "$effective_height" "$indexed_height" "$computed_height" 0
+        log "TIP STALE BUT PROGRESSING: tip_age=${tip_age}s effective=${prev_effective_height}→${effective_height} indexed=${prev_indexed_height}→${indexed_height} computed=${prev_computed_height}→${computed_height}"
         exit 0
     fi
     record_bad_poll \
         "tip_age=${tip_age}s > ${TIP_AGE_THRESHOLD_SECS}s without height advance (silent stall: blocks_behind self-report unreliable)" \
-        "$effective_height" \
-        "$indexed_height"
+        "$effective_height" "$indexed_height" "$computed_height"
 fi
 
 if (( effective_blocks_behind <= MAX_EFFECTIVE_BLOCKS_BEHIND )); then
-    save_state "$effective_height" "$indexed_height" 0
+    save_state "$effective_height" "$indexed_height" "$computed_height" 0
     log "OK: tip_age=${tip_age}s effective_blocks_behind=${effective_blocks_behind} effective_height=${effective_height} indexed=${indexed_height} computed=${computed_height}"
     exit 0
 fi
 
-if (( effective_height > prev_effective_height || indexed_height > prev_indexed_height )); then
-    save_state "$effective_height" "$indexed_height" 0
-    log "CATCHING UP: tip_age=${tip_age}s effective_blocks_behind=${effective_blocks_behind} effective_height=${prev_effective_height}→${effective_height} indexed=${prev_indexed_height}→${indexed_height} computed=${computed_height}"
+if is_progressing; then
+    save_state "$effective_height" "$indexed_height" "$computed_height" 0
+    log "CATCHING UP: tip_age=${tip_age}s effective_blocks_behind=${effective_blocks_behind} effective_height=${prev_effective_height}→${effective_height} indexed=${prev_indexed_height}→${indexed_height} computed=${prev_computed_height}→${computed_height}"
     exit 0
 fi
 
 record_bad_poll \
-    "stall: tip_age=${tip_age}s effective_blocks_behind=${effective_blocks_behind} effective_height=${effective_height} indexed=${indexed_height} computed=${computed_height} (neither indexed nor effective height advanced)" \
-    "$effective_height" \
-    "$indexed_height"
+    "stall: tip_age=${tip_age}s effective_blocks_behind=${effective_blocks_behind} effective_height=${effective_height} indexed=${indexed_height} computed=${computed_height} (no signal advanced)" \
+    "$effective_height" "$indexed_height" "$computed_height"
