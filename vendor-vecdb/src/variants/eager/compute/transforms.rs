@@ -298,12 +298,19 @@ where
                         if key_pos > cursor_pos {
                             cursor.advance(key_pos - cursor_pos);
                         }
-                        let v = cursor.next().unwrap();
+                        // source1 may point past source2.len() during auxiliary-vec
+                        // inconsistency recovery (e.g. source2 truncated by walkback
+                        // before source1 was). Stop the batch instead of SIGABRT;
+                        // the next compute cycle resumes once the vecs are in sync.
+                        let Some(v) = cursor.next() else { return Ok(()) };
                         cursor_pos = key_pos + 1;
                         v
                     } else {
-                        // Duplicate key from gap-filled periods — reuse previous value
-                        last_v.clone().unwrap()
+                        // Duplicate key from gap-filled periods — reuse previous value.
+                        // last_v can only be None on the very first key of the very
+                        // first batch, in which case we also have nothing to push.
+                        let Some(v) = last_v.clone() else { return Ok(()) };
+                        v
                     };
                     last_v = Some(v.clone());
                     let idx = V::I::from(skip + j);
