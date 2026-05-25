@@ -219,7 +219,16 @@ impl Vecs {
         let mut output_types: Vec<OutputType> = Vec::new();
 
         for (idx, _h) in range.enumerate() {
-            let first_tx_index = first_tx_indexes[idx];
+            // Auxiliary-vec inconsistency safety: the collected height-indexed
+            // buffers can be shorter than the requested range after a
+            // "Reader stream stopped early" walkback truncates first_tx_index
+            // or outputs.first_txout_index out from under us. Stop the batch
+            // cleanly rather than SIGABRT — the next compute cycle resumes
+            // once the vecs are back in sync. Same philosophy as the vendor
+            // -vecdb indirect-sequential guard (commit 40b65dc0).
+            let Some(&first_tx_index) = first_tx_indexes.get(idx) else {
+                break;
+            };
             let next_first_tx_index = first_tx_indexes
                 .get(idx + 1)
                 .copied()
@@ -233,7 +242,8 @@ impl Vecs {
             let out_start = if first_tx_index.to_usize() + 1 < next_first_tx_index.to_usize() {
                 let target = first_tx_index.to_usize() + 1;
                 txout_cursor.advance(target - txout_cursor.position());
-                txout_cursor.next().unwrap().to_usize()
+                let Some(v) = txout_cursor.next() else { break };
+                v.to_usize()
             } else {
                 next_out_first
             };
