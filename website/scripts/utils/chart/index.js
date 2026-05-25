@@ -8,7 +8,7 @@ import {
 import { createLegend, createSeriesLegend } from "./legend.js";
 import { capture } from "./capture.js";
 import { colors } from "../colors.js";
-import { createRadios, createSelect, getElementById } from "../dom.js";
+import { createRadios, createSelect } from "../dom.js";
 import { createPersistedValue } from "../persisted.js";
 import { onChange as onThemeChange } from "../theme.js";
 import { throttle, debounce } from "../timing.js";
@@ -1530,8 +1530,14 @@ export function createChart({ parent, brk, fitContent }) {
   /** @param {RangePreset} preset */
   function applyPreset(preset) {
     preferredIndex = preset.index;
-    /** @type {HTMLSelectElement} */ (getElementById("index")).value =
-      preset.index;
+    // The index selector degenerates to a <span> (no id="index") when only
+    // one choice is offered — e.g. FRED-backed macro-economy charts. The
+    // preset bar is still wired up in that case; sync the <select> value
+    // only when one actually exists.
+    const sel = /** @type {HTMLSelectElement | null} */ (
+      document.getElementById("index")
+    );
+    if (sel) sel.value = preset.index;
     index.name.set(preset.index);
 
     const targetGen = generation;
@@ -1589,7 +1595,12 @@ export function createChart({ parent, brk, fitContent }) {
         }),
       );
 
+      // Skip presets whose target index isn't supported by this chart —
+      // otherwise clicking them switches to an index with no data and
+      // blanks the chart (e.g. FRED-backed series only expose a single
+      // resolution like "1m" or "1y").
       for (const preset of getRangePresets()) {
+        if (!choices.includes(preset.index)) continue;
         const btn = window.document.createElement("button");
         btn.textContent = preset.label;
         btn.title = `${preset.label} at ${preset.index} interval`;
