@@ -25,6 +25,28 @@ impl Vecs {
                 "quantile_curvature_dislocation_wick",
                 version,
             )?,
+            traj_seed: None,
+            trajectory_mu: EagerVec::forced_import(db, "quantile_curvature_trajectory_mu", version)?,
+            trajectory_b_lo: EagerVec::forced_import(
+                db,
+                "quantile_curvature_trajectory_b_lo",
+                version,
+            )?,
+            trajectory_b_med: EagerVec::forced_import(
+                db,
+                "quantile_curvature_trajectory_b_med",
+                version,
+            )?,
+            trajectory_b_hi: EagerVec::forced_import(
+                db,
+                "quantile_curvature_trajectory_b_hi",
+                version,
+            )?,
+            trajectory_delta_b: EagerVec::forced_import(
+                db,
+                "quantile_curvature_trajectory_delta_b",
+                version,
+            )?,
         })
     }
 }

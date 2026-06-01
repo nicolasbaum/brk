@@ -9,6 +9,7 @@
 mod band;
 mod compute;
 mod import;
+mod trajectory;
 
 use brk_traversable::Traversable;
 use brk_types::{Cents, Day1, StoredF32};
@@ -20,6 +21,8 @@ use band::Fingerprint;
 type BandVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, Cents>>>;
 /// A `Day1`-indexed undershoot series.
 type UndershootVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, StoredF32>>>;
+/// A `Day1`-indexed expanding-window coefficient series.
+type TrajectoryVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, StoredF32>>>;
 
 #[derive(Traversable)]
 pub struct Vecs<M: StorageMode = Rw> {
@@ -41,6 +44,18 @@ pub struct Vecs<M: StorageMode = Rw> {
     /// (intraday wick / low).
     pub dislocation_close: UndershootVec<M>,
     pub dislocation_wick: UndershootVec<M>,
+
+    /// In-memory warm seed for the next expanding-window backfill fit. Not
+    /// stored; the first fit in a fresh process is cold, the rest warm-chain.
+    #[traversable(skip)]
+    traj_seed: Option<[f64; 3]>,
+
+    /// Append-only expanding-window coefficient trajectory (one fit per day).
+    pub trajectory_mu: TrajectoryVec<M>,
+    pub trajectory_b_lo: TrajectoryVec<M>,
+    pub trajectory_b_med: TrajectoryVec<M>,
+    pub trajectory_b_hi: TrajectoryVec<M>,
+    pub trajectory_delta_b: TrajectoryVec<M>,
 }
 
 impl<M: StorageMode> Vecs<M> {

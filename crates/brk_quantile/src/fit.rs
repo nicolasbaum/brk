@@ -148,6 +148,19 @@ fn check_loss(tau: f64, xs: &[f64], ys: &[f64], c: f64, a: f64) -> f64 {
 
 /// Fit the model to `(t, y)` samples (`t` = days since genesis, `y = log10(close)`).
 pub fn fit(samples: &[(f64, f64)], spec: &FitSpec) -> Coefficients {
+    fit_inner(samples, spec, None)
+}
+
+/// Like [`fit`], but warm-starting the grouped-curvature search from
+/// `warm_curvatures` (`[b^LO, b^MED, b^HI]`) and skipping the grid scan. The
+/// objective is convex, so this converges to the same optimum as [`fit`] while
+/// being much faster when fitting a sequence of overlapping windows (e.g. the
+/// expanding-window coefficient trajectory). Ignored for [`Variant::Linear`].
+pub fn fit_warm(samples: &[(f64, f64)], spec: &FitSpec, warm_curvatures: [f64; 3]) -> Coefficients {
+    fit_inner(samples, spec, Some(warm_curvatures))
+}
+
+fn fit_inner(samples: &[(f64, f64)], spec: &FitSpec, warm: Option<[f64; 3]>) -> Coefficients {
     // Center log-time: x = ln(t) − μ, μ = mean(ln t) over the fit window.
     let xs_raw: Vec<f64> = samples.iter().map(|&(t, _)| t.ln()).collect();
     let ys: Vec<f64> = samples.iter().map(|&(_, y)| y).collect();
@@ -161,8 +174,8 @@ pub fn fit(samples: &[(f64, f64)], spec: &FitSpec) -> Coefficients {
 
     let quantiles = match spec.variant {
         Variant::Linear => fit_linear(&xs, &ys),
-        Variant::SymmetricQuadratic => fit_grouped(&xs, &ys, true),
-        Variant::AsymmetricGrouped => fit_grouped(&xs, &ys, false),
+        Variant::SymmetricQuadratic => fit_grouped(&xs, &ys, true, warm),
+        Variant::AsymmetricGrouped => fit_grouped(&xs, &ys, false, warm),
     };
 
     Coefficients { mu, quantiles }
@@ -218,7 +231,12 @@ fn group_b(ti: usize, b_lo: f64, b_med: f64, b_hi: f64) -> f64 {
 /// regressions on the curvature-adjusted response `y − b·x²`. We therefore
 /// optimize only over the curvatures (1 value when `symmetric`, else 3) with a
 /// deterministic grid warm start refined by Nelder–Mead.
-fn fit_grouped(xs: &[f64], ys: &[f64], symmetric: bool) -> [QuantileCoef; 7] {
+fn fit_grouped(
+    xs: &[f64],
+    ys: &[f64],
+    symmetric: bool,
+    warm_curvatures: Option<[f64; 3]>,
+) -> [QuantileCoef; 7] {
     let xs2: Vec<f64> = xs.iter().map(|x| x * x).collect();
     let (c0, a0) = ols_warm(xs, ys);
     // Linear (b = 0) solutions warm-start every inner solve.
@@ -244,8 +262,15 @@ fn fit_grouped(xs: &[f64], ys: &[f64], symmetric: bool) -> [QuantileCoef; 7] {
             .sum()
     };
 
-    let dim = if symmetric { 1 } else { 3 };
-    let best = grid_then_refine(&objective, dim);
+    // Warm-started: skip the grid and refine from the supplied curvatures.
+    // Cold: scan a deterministic grid, then refine the best point.
+    let best = match warm_curvatures {
+        Some(w) => {
+            let start: Vec<f64> = if symmetric { vec![w[1]] } else { w.to_vec() };
+            crate::optimize::nelder_mead(&objective, &start, FIT_TOL, FIT_MAX_ITER)
+        }
+        None => grid_then_refine(&objective, if symmetric { 1 } else { 3 }),
+    };
     let (b_lo, b_med, b_hi) = if symmetric {
         (best[0], best[0], best[0])
     } else {
@@ -423,6 +448,36 @@ mod tests {
         assert!((coef.b_med() - (-0.2)).abs() < 1e-3, "b_med {}", coef.b_med());
         assert!((coef.b_hi() - (-0.2)).abs() < 1e-3, "b_hi {}", coef.b_hi());
         assert!(coef.delta_b().abs() < 1e-3, "delta_b {}", coef.delta_b());
+    }
+
+    #[test]
+    fn warm_start_converges_to_the_cold_optimum() {
+        // The objective is convex, so a warm-started fit (skipping the grid)
+        // must reach the same curvatures as the cold fit.
+        let ts: Vec<f64> = (560..=5000).map(|d| d as f64).collect();
+        let samples = quadratic_samples(3.0, 1.4, -0.22, &ts);
+
+        let cold = fit(&samples, &FitSpec::asymmetric_grouped());
+        let warm = fit_warm(
+            &samples,
+            &FitSpec::asymmetric_grouped(),
+            [-0.05, -0.05, -0.05],
+        );
+
+        eprintln!(
+            "cold b=({:.5},{:.5},{:.5}) warm b=({:.5},{:.5},{:.5})",
+            cold.b_lo(), cold.b_med(), cold.b_hi(), warm.b_lo(), warm.b_med(), warm.b_hi()
+        );
+        // Both recover the injected curvature (-0.22); warm-start trades a little
+        // precision for speed, so allow a small gap.
+        for (w, c) in [
+            (warm.b_lo(), cold.b_lo()),
+            (warm.b_med(), cold.b_med()),
+            (warm.b_hi(), cold.b_hi()),
+        ] {
+            assert!((w - c).abs() < 5e-3, "warm {w} vs cold {c}");
+            assert!((w - (-0.22)).abs() < 5e-3, "warm {w} should recover -0.22");
+        }
     }
 
     #[test]

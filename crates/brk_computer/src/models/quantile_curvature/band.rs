@@ -65,8 +65,9 @@ pub(crate) fn build_bands(closes: &[Option<f64>]) -> [Vec<Cents>; BAND_COUNT] {
     let samples: Vec<(f64, f64)> = closes
         .iter()
         .enumerate()
+        // t = days since genesis; t ≥ 1 so ln t is finite (day 0 is the anchor).
         .filter_map(|(i, c)| match c {
-            Some(v) if *v > 0.0 => Some((i as f64, v.log10())),
+            Some(v) if *v > 0.0 && i >= 1 => Some((i as f64, v.log10())),
             _ => None,
         })
         .collect();

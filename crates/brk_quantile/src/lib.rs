@@ -14,5 +14,5 @@ mod optimize;
 pub mod rearrange;
 
 pub use fit::{
-    Coefficients, FitSpec, HI_IDX, LO_IDX, MEDIAN_IDX, QuantileCoef, TAUS, Variant, fit,
+    Coefficients, FitSpec, HI_IDX, LO_IDX, MEDIAN_IDX, QuantileCoef, TAUS, Variant, fit, fit_warm,
 };
