@@ -6,9 +6,9 @@ use brk_error::Result;
 use brk_fetcher::Fetcher;
 use brk_indexer::Indexer;
 use brk_traversable::Traversable;
-use brk_types::{Height, Version};
+use brk_types::{Day1, Height, Version};
 use tracing::info;
-use vecdb::{AnyExportableVec, Exit, Ro, Rw, StorageMode};
+use vecdb::{AnyExportableVec, AnyVec, Exit, ReadableOptionVec, Ro, Rw, StorageMode};
 
 mod blocks;
 mod cointime;
@@ -22,7 +22,7 @@ mod investing;
 pub mod macro_economy;
 mod market;
 mod mining;
-mod models;
+pub mod models;
 mod outputs;
 mod pools;
 pub mod prices;
@@ -490,6 +490,18 @@ impl Computer {
 
         info!("Total compute time: {:?}", compute_start.elapsed());
         Ok(())
+    }
+}
+
+impl<M: StorageMode> Computer<M> {
+    /// Snapshot of the daily close price (USD) per `Day1` index — `None` where
+    /// there is no positive close. Cheap to clone into an off-loop research
+    /// thread (no vecdb handles cross the thread boundary).
+    pub fn daily_closes(&self) -> Vec<Option<f64>> {
+        let close = &self.prices.split.close.usd.day1;
+        (0..self.indexes.day1.date.len())
+            .map(|i| close.collect_one_flat(Day1::from(i)).map(f64::from))
+            .collect()
     }
 }
 

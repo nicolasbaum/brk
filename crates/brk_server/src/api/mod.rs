@@ -24,6 +24,7 @@ mod general;
 mod mempool;
 mod metrics;
 mod mining;
+mod models;
 mod openapi;
 mod series;
 mod series_legacy;
@@ -37,6 +38,7 @@ use fees::FeesRoutes;
 use general::GeneralRoutes;
 use mempool::MempoolRoutes;
 use mining::MiningRoutes;
+use models::ModelsRoutes;
 pub use openapi::*;
 use transactions::TxRoutes;
 
@@ -55,6 +57,7 @@ impl ApiRoutes for ApiRouter<AppState> {
             .add_addr_routes()
             .add_block_routes()
             .add_mining_routes()
+            .add_models_routes()
             .add_fees_routes()
             .add_mempool_routes()
             .add_tx_routes()

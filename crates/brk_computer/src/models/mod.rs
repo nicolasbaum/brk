@@ -9,6 +9,7 @@ pub mod baselines;
 mod compute;
 mod import;
 pub mod quantile_curvature;
+pub mod research;
 mod util;
 
 use brk_traversable::Traversable;
@@ -16,6 +17,7 @@ use vecdb::{Database, Rw, StorageMode};
 
 pub use baselines::Vecs as BaselinesVecs;
 pub use quantile_curvature::Vecs as QuantileCurvatureVecs;
+pub use research::{ResearchArtifact, compute_research_artifact, write_research_artifact};
 
 pub const DB_NAME: &str = "models";
 
