@@ -5,6 +5,7 @@
 //! full asymmetric fan, the coefficient trajectory, dislocation, and the prior
 //! `baselines`.
 
+pub mod baselines;
 mod compute;
 mod import;
 pub mod quantile_curvature;
@@ -12,6 +13,7 @@ pub mod quantile_curvature;
 use brk_traversable::Traversable;
 use vecdb::{Database, Rw, StorageMode};
 
+pub use baselines::Vecs as BaselinesVecs;
 pub use quantile_curvature::Vecs as QuantileCurvatureVecs;
 
 pub const DB_NAME: &str = "models";
@@ -22,4 +24,5 @@ pub struct Vecs<M: StorageMode = Rw> {
     pub(crate) db: Database,
 
     pub quantile_curvature: QuantileCurvatureVecs<M>,
+    pub baselines: BaselinesVecs<M>,
 }

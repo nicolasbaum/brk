@@ -479,7 +479,13 @@ impl Computer {
             .compute(indexer, &self.distribution, &self.prices, exit)?;
 
         timed("Computed models", || {
-            self.models.compute(&self.prices, &self.indexes, exit)
+            self.models.compute(
+                &self.prices,
+                &self.indicators,
+                &self.supply,
+                &self.indexes,
+                exit,
+            )
         })?;
 
         info!("Total compute time: {:?}", compute_start.elapsed());
