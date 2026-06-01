@@ -22,6 +22,7 @@ mod investing;
 pub mod macro_economy;
 mod market;
 mod mining;
+mod models;
 mod outputs;
 mod pools;
 pub mod prices;
@@ -40,6 +41,7 @@ pub struct Computer<M: StorageMode = Rw> {
     pub investing: Box<investing::Vecs<M>>,
     pub macro_economy: Box<macro_economy::Vecs<M>>,
     pub market: Box<market::Vecs<M>>,
+    pub models: Box<models::Vecs<M>>,
     pub pools: Box<pools::Vecs<M>>,
     pub prices: Box<prices::Vecs<M>>,
     #[traversable(flatten)]
@@ -221,6 +223,10 @@ impl Computer {
             macro_economy::Vecs::forced_import(&computed_path, VERSION)
         })?);
 
+        let models = Box::new(timed("Imported models", || {
+            models::Vecs::forced_import(&computed_path, VERSION)
+        })?);
+
         info!("Total import time: {:?}", import_start.elapsed());
 
         let this = Self {
@@ -232,6 +238,7 @@ impl Computer {
             investing,
             macro_economy,
             market,
+            models,
             distribution,
             supply,
             pools,
@@ -260,6 +267,7 @@ impl Computer {
             investing::DB_NAME,
             macro_economy::DB_NAME,
             market::DB_NAME,
+            models::DB_NAME,
             pools::DB_NAME,
             prices::DB_NAME,
             distribution::DB_NAME,
@@ -470,6 +478,10 @@ impl Computer {
             .rarity_meter
             .compute(indexer, &self.distribution, &self.prices, exit)?;
 
+        timed("Computed models", || {
+            self.models.compute(&self.prices, &self.indexes, exit)
+        })?;
+
         info!("Total compute time: {:?}", compute_start.elapsed());
         Ok(())
     }
@@ -521,6 +533,7 @@ impl_iter_named!(
     investing,
     macro_economy,
     market,
+    models,
     pools,
     prices,
     distribution,

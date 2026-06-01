@@ -431,6 +431,7 @@ dependencies = [
  "brk_indexer",
  "brk_logger",
  "brk_oracle",
+ "brk_quantile",
  "brk_reader",
  "brk_rpc",
  "brk_traversable",
@@ -550,6 +551,10 @@ dependencies = [
  "serde_json",
  "vecdb",
 ]
+
+[[package]]
+name = "brk_quantile"
+version = "0.3.0-beta.9"
 
 [[package]]
 name = "brk_query"

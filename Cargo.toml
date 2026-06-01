@@ -53,6 +53,7 @@ brk_iterator = { version = "0.3.0-beta.9", path = "crates/brk_iterator" }
 brk_logger = { version = "0.3.0-beta.9", path = "crates/brk_logger" }
 brk_mempool = { version = "0.3.0-beta.9", path = "crates/brk_mempool" }
 brk_oracle = { version = "0.3.0-beta.9", path = "crates/brk_oracle" }
+brk_quantile = { version = "0.3.0-beta.9", path = "crates/brk_quantile" }
 brk_query = { version = "0.3.0-beta.9", path = "crates/brk_query", features = ["tokio"] }
 brk_reader = { version = "0.3.0-beta.9", path = "crates/brk_reader" }
 brk_rpc = { version = "0.3.0-beta.9", path = "crates/brk_rpc" }
