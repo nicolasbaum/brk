@@ -7,6 +7,7 @@
 //! unit-tested in isolation against the working paper's published values, with
 //! no BRK dependencies.
 
+pub mod baselines;
 mod fit;
 mod optimize;
 pub mod rearrange;
