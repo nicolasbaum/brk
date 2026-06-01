@@ -133,8 +133,10 @@ impl Coefficients {
 
 /// Convergence tolerance on the simplex objective spread.
 const FIT_TOL: f64 = 1e-10;
-/// Iteration cap for each per-quantile solve.
-const FIT_MAX_ITER: usize = 2000;
+/// Iteration cap for each per-quantile solve. On clean data the simplex reaches
+/// `FIT_TOL` well before this; the cap only bounds pathological cases (e.g. the
+/// noisy resampled series in the bootstrap) so they cannot run away.
+const FIT_MAX_ITER: usize = 500;
 
 /// The pooled check-loss `Σ ρτ(yᵢ − ŷᵢ)`, `ρτ(u) = u·(τ − 𝟙{u<0})`.
 fn check_loss(tau: f64, xs: &[f64], ys: &[f64], c: f64, a: f64) -> f64 {

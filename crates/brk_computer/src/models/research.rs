@@ -15,8 +15,9 @@ use serde::Serialize;
 
 /// Fixed seed so the served diagnostics are reproducible.
 const SEED: u64 = 0x42524b5f_71636d76; // "BRK_qcmv"
-/// Bootstrap replicates per configuration (off-loop, so generous).
-const RESAMPLES: usize = 250;
+/// Bootstrap replicates per configuration (off-loop, but kept modest so the
+/// one-time artifact lands in minutes rather than tens of minutes).
+const RESAMPLES: usize = 150;
 /// Block lengths (days) for the dependence-robustness sweep.
 const BLOCK_LENS: [usize; 4] = [14, 30, 60, 90];
 
