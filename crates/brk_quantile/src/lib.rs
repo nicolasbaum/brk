@@ -8,6 +8,7 @@
 //! no BRK dependencies.
 
 pub mod baselines;
+pub mod dislocation;
 mod fit;
 mod optimize;
 pub mod rearrange;

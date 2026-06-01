@@ -4,8 +4,9 @@
 //! closes it produces the predicted price band, and given the input shape it
 //! decides whether a refit is warranted.
 
+use brk_quantile::dislocation::undershoot;
 use brk_quantile::{FitSpec, TAUS, fit};
-use brk_types::Cents;
+use brk_types::{Cents, StoredF32};
 
 /// Number of quantile bands (= [`brk_quantile::TAUS`] length).
 pub(crate) const BAND_COUNT: usize = TAUS.len();
@@ -88,6 +89,20 @@ pub(crate) fn build_bands(closes: &[Option<f64>]) -> [Vec<Cents>; BAND_COUNT] {
     bands
 }
 
+/// Per-day undershoot `U(t) = (price − Q₀.₀₁)/Q₀.₀₁` of `prices` (USD) against
+/// the stored 1% band (cents). Days with no price contribute `0.0`.
+pub(crate) fn build_undershoot(prices: &[Option<f64>], q01_cents: &[Cents]) -> Vec<StoredF32> {
+    (0..prices.len())
+        .map(|i| match prices[i] {
+            Some(p) => {
+                let q01 = f64::from(q01_cents[i]) / 100.0;
+                StoredF32::from(undershoot(p, q01) as f32)
+            }
+            None => StoredF32::from(0.0f32),
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,6 +170,17 @@ mod tests {
         for band in &bands {
             assert_eq!(*band, vec![Cents::ZERO; 3]);
         }
+    }
+
+    #[test]
+    fn undershoot_series_is_signed_against_the_band() {
+        // Band at $100 (10_000 cents); price below → negative, above → positive.
+        let q01 = vec![Cents::from(10_000u64); 3];
+        let prices = vec![Some(80.0), Some(120.0), None];
+        let u = build_undershoot(&prices, &q01);
+        assert!((f64::from(u[0]) - (-0.2)).abs() < 1e-6, "below band");
+        assert!(f64::from(u[1]) > 0.0, "above band");
+        assert_eq!(f64::from(u[2]), 0.0, "missing price → 0");
     }
 
     #[test]

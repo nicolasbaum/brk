@@ -11,13 +11,15 @@ mod compute;
 mod import;
 
 use brk_traversable::Traversable;
-use brk_types::{Cents, Day1};
+use brk_types::{Cents, Day1, StoredF32};
 use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
 use band::Fingerprint;
 
 /// A single `Day1`-indexed price-band series, in cents.
 type BandVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, Cents>>>;
+/// A `Day1`-indexed undershoot series.
+type UndershootVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, StoredF32>>>;
 
 #[derive(Traversable)]
 pub struct Vecs<M: StorageMode = Rw> {
@@ -34,6 +36,11 @@ pub struct Vecs<M: StorageMode = Rw> {
     pub q75: BandVec<M>,
     pub q95: BandVec<M>,
     pub q99: BandVec<M>,
+
+    /// Dislocation `U(t)` below the 1% band: conservative (close) and extreme
+    /// (intraday wick / low).
+    pub dislocation_close: UndershootVec<M>,
+    pub dislocation_wick: UndershootVec<M>,
 }
 
 impl<M: StorageMode> Vecs<M> {

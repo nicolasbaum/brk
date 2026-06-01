@@ -15,6 +15,16 @@ impl Vecs {
             q75: EagerVec::forced_import(db, "quantile_curvature_q75", version)?,
             q95: EagerVec::forced_import(db, "quantile_curvature_q95", version)?,
             q99: EagerVec::forced_import(db, "quantile_curvature_q99", version)?,
+            dislocation_close: EagerVec::forced_import(
+                db,
+                "quantile_curvature_dislocation_close",
+                version,
+            )?,
+            dislocation_wick: EagerVec::forced_import(
+                db,
+                "quantile_curvature_dislocation_wick",
+                version,
+            )?,
         })
     }
 }

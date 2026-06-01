@@ -9,6 +9,7 @@ pub mod baselines;
 mod compute;
 mod import;
 pub mod quantile_curvature;
+mod util;
 
 use brk_traversable::Traversable;
 use vecdb::{Database, Rw, StorageMode};

@@ -1,12 +1,12 @@
 use brk_error::Result;
 use brk_types::Day1;
-use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableOptionVec, VecValue, WritableVec};
+use vecdb::{AnyVec, Exit, ReadableOptionVec};
 
 use super::{
     Vecs,
     predict::{Baselines, DayInput, build_baselines},
 };
-use crate::{indexes, indicators, prices, supply};
+use crate::{indexes, indicators, models::util::full_rewrite, prices, supply};
 
 impl Vecs {
     pub(crate) fn compute(
@@ -64,20 +64,4 @@ impl Vecs {
         self.last_fingerprint = Some(fingerprint);
         Ok(())
     }
-}
-
-/// Past values move as the published curves are re-evaluated over the (growing)
-/// window, so each refit fully rewrites the series.
-fn full_rewrite<T, V>(vec: &mut V, values: &[T], exit: &Exit) -> Result<()>
-where
-    T: Copy + VecValue,
-    V: WritableVec<Day1, T> + AnyStoredVec,
-{
-    vec.truncate_if_needed_at(0)?;
-    for &v in values {
-        vec.push(v);
-    }
-    let _lock = exit.lock();
-    vec.write()?;
-    Ok(())
 }
