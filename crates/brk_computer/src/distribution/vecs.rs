@@ -20,7 +20,7 @@ use crate::{
     distribution::{
         compute::{
             PriceRangeMax, StartMode, determine_start_mode, process_blocks, recover_state,
-            reset_state,
+            reset_state, rollback_before_or_noop,
         },
         state::BlockState,
     },
@@ -343,8 +343,13 @@ impl Vecs {
             StartMode::Resume(height) => {
                 let stamp = Stamp::from(height);
 
-                // Rollback BytesVec state and capture results for validation
-                let chain_state_rollback = self.supply_state.rollback_before(stamp);
+                // Rollback BytesVec state and capture results for validation.
+                // `rollback_before_or_noop` skips the vecdb call when the vec
+                // is already strictly below the target stamp — that case is a
+                // no-op but the trait default would still try to read the
+                // changes/ directory, which fails with IO(NotFound) for vecs
+                // that have never persisted a stamped change.
+                let chain_state_rollback = rollback_before_or_noop(&mut self.supply_state, stamp);
 
                 // Validate all rollbacks and imports are consistent
                 let recovered = recover_state(

@@ -4,6 +4,8 @@ use brk_types::{EmptyAddrData, EmptyAddrIndex, FundedAddrData, FundedAddrIndex, 
 use rayon::prelude::*;
 use vecdb::{AnyStoredVec, BytesVec, Rw, Stamp, StorageMode, WritableVec};
 
+use crate::distribution::compute::rollback_before_or_noop;
+
 /// Storage for both funded and empty address data.
 #[derive(Traversable)]
 pub struct AddrsDataVecs<M: StorageMode = Rw> {
@@ -22,8 +24,8 @@ impl AddrsDataVecs {
     /// Rollback both funded and empty data to before the given stamp.
     pub(crate) fn rollback_before(&mut self, stamp: Stamp) -> Result<[Stamp; 2]> {
         Ok([
-            self.funded.rollback_before(stamp)?,
-            self.empty.rollback_before(stamp)?,
+            rollback_before_or_noop(&mut self.funded, stamp)?,
+            rollback_before_or_noop(&mut self.empty, stamp)?,
         ])
     }
 

@@ -29,6 +29,9 @@ tokio = { workspace = true }
 toml = "1.1.2"
 vecdb = { workspace = true }
 
+[features]
+bindgen = ["brk_server/bindgen"]
+
 [[bin]]
 name = "brk"
 path = "src/main.rs"

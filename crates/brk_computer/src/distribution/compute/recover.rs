@@ -3,13 +3,35 @@ use std::{cmp::Ordering, collections::BTreeSet};
 use brk_error::Result;
 use brk_types::Height;
 use tracing::{debug, warn};
-use vecdb::Stamp;
+use vecdb::{Stamp, VecIndex, VecValue, WritableVec};
 
 use super::super::{
     AddrsDataVecs,
     addr::AnyAddrIndexesVecs,
     cohorts::{AddrCohorts, UTXOCohorts},
 };
+
+/// Call `vec.rollback_before(target)`, but skip it entirely when
+/// `vec.stamp() < target` — that case is a proven no-op and the
+/// trait default would still touch the on-disk changes directory via
+/// `find_rollback_files`, which fails with `IO(NotFound)` for vecs
+/// that have never persisted a stamped change. That spurious error
+/// used to cascade into `State recovery: fresh start`, wiping
+/// accumulated state.
+pub(crate) fn rollback_before_or_noop<V, I, T>(
+    vec: &mut V,
+    target: Stamp,
+) -> vecdb::Result<Stamp>
+where
+    V: WritableVec<I, T>,
+    I: VecIndex,
+    T: VecValue,
+{
+    if vec.stamp() < target {
+        return Ok(vec.stamp());
+    }
+    vec.rollback_before(target)
+}
 
 /// Result of state recovery.
 pub struct RecoveredState {
@@ -216,5 +238,67 @@ fn rollback_states(
     } else {
         warn!("Rollback heights inconsistent: {:?}", heights);
         Height::ZERO
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+    use vecdb::{
+        AnyStoredVec, BytesVec, Database, ImportOptions, ImportableVec, Version, WritableVec,
+    };
+
+    type TestVec = BytesVec<usize, u32>;
+
+    /// Build a [`BytesVec`] in a fresh temp dir. When `saved_stamped_changes`
+    /// is 0, the changes directory is never created, which matches the
+    /// production failure mode (`find_rollback_files` → `IO(NotFound)`).
+    fn fresh_vec(saved_stamped_changes: u16) -> (TempDir, Database, TestVec) {
+        let temp = TempDir::new().unwrap();
+        let db = Database::open(temp.path()).unwrap();
+        let options: ImportOptions = ImportOptions::new(&db, "test", Version::TWO)
+            .with_saved_stamped_changes(saved_stamped_changes);
+        let vec = TestVec::forced_import_with(options).unwrap();
+        (temp, db, vec)
+    }
+
+    #[test]
+    fn rollback_before_or_noop_skips_when_stamp_strictly_below_target() {
+        // saved_stamped_changes=0 → changes/ dir is never created, so calling
+        // `rollback_before` directly would fail with IO(NotFound) inside
+        // `find_rollback_files`. The helper must short-circuit before that.
+        let (_temp, _db, mut vec) = fresh_vec(0);
+        vec.push(1);
+        vec.push(2);
+        vec.stamped_write(Stamp::new(5)).unwrap();
+        assert_eq!(vec.stamp(), Stamp::new(5));
+
+        let result = rollback_before_or_noop(&mut vec, Stamp::new(10));
+
+        assert_eq!(result.unwrap(), Stamp::new(5));
+    }
+
+    #[test]
+    fn rollback_before_or_noop_defers_to_rollback_at_equality_boundary() {
+        // With rollback infrastructure in place, the helper must NOT
+        // short-circuit when stamp == target — strict `<` is the
+        // chosen no-op semantic, so equality has to defer to the
+        // trait default, which rewinds exactly one change file
+        // (semantics of `rollback_before(N)`: end with stamp < N).
+        let (_temp, _db, mut vec) = fresh_vec(10);
+        vec.push(1);
+        vec.push(2);
+        vec.stamped_write_with_changes(Stamp::new(1)).unwrap();
+        vec.push(3);
+        vec.stamped_write_with_changes(Stamp::new(2)).unwrap();
+        assert_eq!(vec.stamp(), Stamp::new(2));
+
+        let result = rollback_before_or_noop(&mut vec, Stamp::new(2));
+
+        // Trait default rewinds one file: stamp(2) → stamp(1) which
+        // satisfies `stamp < target(2)`.
+        assert_eq!(result.unwrap(), Stamp::new(1));
+        assert_eq!(vec.stamp(), Stamp::new(1));
     }
 }

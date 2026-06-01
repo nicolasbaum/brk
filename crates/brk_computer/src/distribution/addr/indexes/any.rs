@@ -16,6 +16,7 @@ use vecdb::{
 };
 
 use super::super::AddrTypeToTypeIndexMap;
+use crate::distribution::compute::rollback_before_or_noop;
 
 const SAVED_STAMPED_CHANGES: u16 = 10;
 
@@ -48,7 +49,7 @@ macro_rules! define_any_addr_indexes_vecs {
 
             /// Rollback all address types to before the given stamp.
             pub(crate) fn rollback_before(&mut self, stamp: Stamp) -> Result<Vec<Stamp>> {
-                Ok(vec![$(self.$field.rollback_before(stamp)?),*])
+                Ok(vec![$(rollback_before_or_noop(&mut self.$field, stamp)?),*])
             }
 
             /// Reset all address types.

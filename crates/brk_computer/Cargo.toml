@@ -35,3 +35,4 @@ brk_reader = { workspace = true }
 brk_alloc = { workspace = true }
 brk_bencher = { workspace = true }
 color-eyre = { workspace = true }
+tempfile = "3.27"

@@ -51,6 +51,15 @@ impl CanonicalRange {
         self.by_hash.is_empty()
     }
 
+    /// Drop entries above `max_offset`. Used by the pipeline to clip
+    /// `canonical` to whatever portion has actually been flushed to
+    /// `blk*.dat`: bitcoind advertises blocks via RPC before persisting
+    /// them, so the original window can include heights whose bytes
+    /// aren't yet on disk.
+    pub(crate) fn truncate_above_offset(&mut self, max_offset: u32) {
+        self.by_hash.retain(|_, off| *off <= max_offset);
+    }
+
     #[inline]
     pub(crate) fn offset_of(&self, hash: &BlockHash) -> Option<u32> {
         self.by_hash.get(hash).copied()

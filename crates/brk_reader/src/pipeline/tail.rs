@@ -4,6 +4,7 @@ use brk_error::{Error, Result};
 use brk_rpc::Client;
 use brk_types::{BlockHash, Height, ReadBlock};
 use crossbeam::channel::Sender;
+use tracing::info;
 
 use crate::{
     BlkIndexToBlkPath, OUT_OF_ORDER_FILE_BACKOFF, XORBytes, bisect,
@@ -25,6 +26,7 @@ pub(super) fn pipeline_tail(
     let mut remaining = canonical.len();
     let mut parse_failure: Option<Error> = None;
     let mut below_floor_streak: usize = 0;
+    let mut walked_past_backoff = false;
 
     'files: for (&blk_index, path) in paths.iter().rev() {
         if let Some(missing_idx) = slots.iter().position(Option::is_none)
@@ -34,9 +36,16 @@ pub(super) fn pipeline_tail(
             if first_height < lowest_missing {
                 below_floor_streak += 1;
                 if below_floor_streak >= OUT_OF_ORDER_FILE_BACKOFF {
-                    return Err(Error::Internal(
-                        "tail pipeline: walked past the canonical window without finding all blocks",
-                    ));
+                    // Bitcoind has advertised canonical hashes through
+                    // RPC whose bodies are not yet flushed to blk*.dat.
+                    // Stop searching and emit whatever contiguous prefix
+                    // we already have — the next index() pass will pick
+                    // up the rest once bitcoind catches up. Erroring
+                    // here used to cascade into compute's "State
+                    // recovery: fresh start" path and wipe a full
+                    // genesis-to-tip pass of work.
+                    walked_past_backoff = true;
+                    break 'files;
                 }
             } else {
                 below_floor_streak = 0;
@@ -123,14 +132,31 @@ pub(super) fn pipeline_tail(
         }
     }
 
-    if remaining > 0 {
+    if remaining > 0 && !walked_past_backoff {
+        // Walked every blk file without filling all canonical slots and
+        // never hit the per-file backoff — that's a true on-disk gap
+        // (corruption, prune, etc.), not the bitcoind-flush race.
         return Err(Error::Internal(
             "tail pipeline: blk files missing canonical blocks",
         ));
     }
 
+    if walked_past_backoff {
+        let filled = canonical.len() - remaining;
+        info!(
+            "tail pipeline: bitcoind RPC advertised canonical hashes whose bodies are not yet on disk; emitting contiguous prefix of {filled}/{} blocks and deferring the rest to the next pass",
+            canonical.len(),
+        );
+    }
+
+    // Emit only the contiguous-from-start filled prefix. Any gap stops
+    // the stream so the indexer's prev_hash stays on the last block it
+    // actually consumed — the next index() pass resumes cleanly from
+    // there.
     for slot in slots {
-        let block = slot.expect("tail pipeline left a slot empty after `remaining == 0`");
+        let Some(block) = slot else {
+            break;
+        };
         if send.send(Ok(block)).is_err() {
             return Ok(());
         }
