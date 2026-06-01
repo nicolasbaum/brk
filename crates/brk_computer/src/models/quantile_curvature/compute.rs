@@ -4,7 +4,7 @@ use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableOptionVec, WritableVec};
 
 use super::{
     Vecs,
-    band::{Fingerprint, build_q50_band, should_refit},
+    band::{Fingerprint, build_bands, should_refit},
 };
 use crate::{indexes, prices};
 
@@ -29,14 +29,14 @@ impl Vecs {
         }
 
         // Past band values move as the fit evolves, so this is a full rewrite.
-        let band = build_q50_band(&closes);
-        self.q50.truncate_if_needed_at(0)?;
-        for value in band {
-            self.q50.push(value);
-        }
-        {
+        let bands = build_bands(&closes);
+        for (vec, values) in self.bands_mut().into_iter().zip(bands) {
+            vec.truncate_if_needed_at(0)?;
+            for value in values {
+                vec.push(value);
+            }
             let _lock = exit.lock();
-            self.q50.write()?;
+            vec.write()?;
         }
 
         self.last_fingerprint = Some(fingerprint);

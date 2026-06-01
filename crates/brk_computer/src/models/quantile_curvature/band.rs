@@ -4,8 +4,11 @@
 //! closes it produces the predicted price band, and given the input shape it
 //! decides whether a refit is warranted.
 
-use brk_quantile::{FitSpec, MEDIAN_IDX, fit};
+use brk_quantile::{FitSpec, TAUS, fit};
 use brk_types::Cents;
+
+/// Number of quantile bands (= [`brk_quantile::TAUS`] length).
+pub(crate) const BAND_COUNT: usize = TAUS.len();
 
 /// Fingerprint of the daily-close input. The model is refit only when this
 /// changes, so band vecs are not rewritten on every block batch.
@@ -49,13 +52,15 @@ pub(crate) fn should_refit(
     }
 }
 
-/// Build the median (q50) price band: one `Cents` value per day index.
+/// Build the seven price-quantile bands (ascending, aligned with
+/// [`brk_quantile::TAUS`]): one `Cents` value per day index per band.
 ///
 /// `closes` is indexed by day (days since the genesis anchor); `None`/non-positive
 /// entries are days without a positive close — excluded from the fit but still
-/// assigned a band value (the fitted median evaluated at that day). Fewer than
-/// two positive closes yields an all-zero band (nothing to fit).
-pub(crate) fn build_q50_band(closes: &[Option<f64>]) -> Vec<Cents> {
+/// assigned a band value (the fitted fan evaluated at that day). Predictions are
+/// monotone-rearranged before storage, so a higher quantile is never priced
+/// below a lower one. Too few positive closes yields all-zero bands.
+pub(crate) fn build_bands(closes: &[Option<f64>]) -> [Vec<Cents>; BAND_COUNT] {
     let samples: Vec<(f64, f64)> = closes
         .iter()
         .enumerate()
@@ -65,23 +70,28 @@ pub(crate) fn build_q50_band(closes: &[Option<f64>]) -> Vec<Cents> {
         })
         .collect();
 
-    if samples.len() < 2 {
-        return vec![Cents::ZERO; closes.len()];
+    // The asymmetric grouped fit needs enough points to identify 17 parameters.
+    if samples.len() < 2 * BAND_COUNT {
+        return std::array::from_fn(|_| vec![Cents::ZERO; closes.len()]);
     }
 
-    let coef = fit(&samples, &FitSpec::linear());
-    (0..closes.len())
-        .map(|i| {
-            // t = days since genesis; clamp away from ln(0) at the genesis day.
-            let t = (i as f64).max(1.0);
-            Cents::from((coef.predict_price(MEDIAN_IDX, t) * 100.0).max(0.0))
-        })
-        .collect()
+    let coef = fit(&samples, &FitSpec::asymmetric_grouped());
+    let mut bands: [Vec<Cents>; BAND_COUNT] =
+        std::array::from_fn(|_| Vec::with_capacity(closes.len()));
+    for i in 0..closes.len() {
+        // t = days since genesis; clamp away from ln(0) at the genesis day.
+        let prices = coef.band_prices((i as f64).max(1.0));
+        for (band, price) in bands.iter_mut().zip(prices) {
+            band.push(Cents::from((price * 100.0).max(0.0)));
+        }
+    }
+    bands
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use brk_quantile::MEDIAN_IDX;
 
     /// Daily closes following a clean exponential trend in log-time, so the
     /// median band should recover a smooth, strictly increasing curve.
@@ -99,41 +109,52 @@ mod tests {
     }
 
     #[test]
-    fn band_is_dense_positive_and_increasing() {
+    fn bands_are_dense_positive_and_non_crossing() {
         let closes = exp_closes(3000);
-        let band = build_q50_band(&closes);
+        let bands = build_bands(&closes);
 
-        assert_eq!(band.len(), closes.len(), "band must cover every day index");
+        for band in &bands {
+            assert_eq!(band.len(), closes.len(), "each band covers every day");
+        }
 
-        // Increasing trend (a > 0): each value at/above the previous, all positive.
-        for i in 600..band.len() {
-            assert!(u64::from(band[i]) > 0, "band[{i}] should be positive");
+        for i in 600..closes.len() {
+            // Non-crossing across quantiles: q01 ≤ q10 ≤ … ≤ q99 at every day.
+            for q in 1..BAND_COUNT {
+                assert!(
+                    u64::from(bands[q][i]) >= u64::from(bands[q - 1][i]),
+                    "bands crossed at day {i}, quantile {q}"
+                );
+            }
+            // The median band rises with time (a > 0) and stays positive.
+            assert!(u64::from(bands[MEDIAN_IDX][i]) > 0, "median zero at {i}");
             assert!(
-                u64::from(band[i]) >= u64::from(band[i - 1]),
-                "band must be monotone non-decreasing at {i}"
+                u64::from(bands[MEDIAN_IDX][i]) >= u64::from(bands[MEDIAN_IDX][i - 1]),
+                "median band must be monotone over time at {i}"
             );
         }
     }
 
     #[test]
-    fn band_tracks_the_input_trend() {
+    fn median_band_tracks_the_input_trend() {
         let closes = exp_closes(3000);
-        let band = build_q50_band(&closes);
+        let bands = build_bands(&closes);
 
-        // On noiseless data the median lands on the trend, so the band cents
-        // ≈ close × 100 at a representative day.
+        // On noiseless data the fan collapses onto the trend, so the median band
+        // cents ≈ close × 100 at a representative day.
         let i = 2000;
         let expected_cents = closes[i].unwrap() * 100.0;
-        let got = u64::from(band[i]) as f64;
+        let got = u64::from(bands[MEDIAN_IDX][i]) as f64;
         let rel_err = (got - expected_cents).abs() / expected_cents;
-        assert!(rel_err < 0.01, "band {got} vs expected {expected_cents} cents");
+        assert!(rel_err < 0.02, "median {got} vs expected {expected_cents} cents");
     }
 
     #[test]
-    fn too_few_points_yields_zero_band() {
+    fn too_few_points_yields_zero_bands() {
         let closes = vec![None, None, Some(100.0)];
-        let band = build_q50_band(&closes);
-        assert_eq!(band, vec![Cents::ZERO; 3]);
+        let bands = build_bands(&closes);
+        for band in &bands {
+            assert_eq!(*band, vec![Cents::ZERO; 3]);
+        }
     }
 
     #[test]
