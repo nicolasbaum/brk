@@ -8,10 +8,14 @@
 //! no BRK dependencies.
 
 pub mod baselines;
+pub mod bootstrap;
 pub mod dislocation;
 mod fit;
+mod oos;
 mod optimize;
 pub mod rearrange;
+
+pub use oos::{OosComparison, diebold_mariano, expanding_window_oos, expanding_window_oos_median, pinball};
 
 pub use fit::{
     Coefficients, FitSpec, HI_IDX, LO_IDX, MEDIAN_IDX, QuantileCoef, TAUS, Variant, fit, fit_warm,
