@@ -6902,6 +6902,7 @@ pub struct SeriesTree_Models_QuantileCurvature {
     pub overshoot_close: SeriesPattern8<StoredF32>,
     pub overshoot_wick: SeriesPattern8<StoredF32>,
     pub fan_position: SeriesPattern8<StoredF32>,
+    pub fan_position_extended: SeriesPattern8<StoredF32>,
     pub trajectory_mu: SeriesPattern8<StoredF32>,
     pub trajectory_b_lo: SeriesPattern8<StoredF32>,
     pub trajectory_b_med: SeriesPattern8<StoredF32>,
@@ -6924,6 +6925,7 @@ impl SeriesTree_Models_QuantileCurvature {
             overshoot_close: SeriesPattern8::new(client.clone(), "quantile_curvature_overshoot_close".to_string()),
             overshoot_wick: SeriesPattern8::new(client.clone(), "quantile_curvature_overshoot_wick".to_string()),
             fan_position: SeriesPattern8::new(client.clone(), "quantile_curvature_fan_position".to_string()),
+            fan_position_extended: SeriesPattern8::new(client.clone(), "quantile_curvature_fan_position_extended".to_string()),
             trajectory_mu: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_mu".to_string()),
             trajectory_b_lo: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_lo".to_string()),
             trajectory_b_med: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_med".to_string()),
@@ -9999,7 +10001,7 @@ impl BrkClient {
     ///
     /// Block-bootstrap asymmetry inference for the asymmetric tail-curvature quantile price model: `Δb` (curvature asymmetry) with standard error, confidence interval and p-value, block-length sensitivity, plus the out-of-sample Diebold–Mariano diagnostics. Computed off the per-block compute loop and written to `<data>/models_research.json`; returns 404 until the first artifact has been produced.
     ///
-    /// The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position, expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/metrics` and query via `/api/metric/{metric}`.
+    /// The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position (clamped and extended), expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/series/list` and query via `/api/series/{series}/{index}`.
     ///
     /// Endpoint: `GET /api/v1/models/research`
     pub fn get_models_research(&self) -> Result<serde_json::Value> {

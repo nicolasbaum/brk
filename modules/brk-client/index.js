@@ -6521,6 +6521,7 @@ function createTransferPattern(client, acc) {
  * @property {SeriesPattern8<StoredF32>} overshootClose
  * @property {SeriesPattern8<StoredF32>} overshootWick
  * @property {SeriesPattern8<StoredF32>} fanPosition
+ * @property {SeriesPattern8<StoredF32>} fanPositionExtended
  * @property {SeriesPattern8<StoredF32>} trajectoryMu
  * @property {SeriesPattern8<StoredF32>} trajectoryBLo
  * @property {SeriesPattern8<StoredF32>} trajectoryBMed
@@ -9743,6 +9744,7 @@ class BrkClient extends BrkClientBase {
           overshootClose: createSeriesPattern8(this, 'quantile_curvature_overshoot_close'),
           overshootWick: createSeriesPattern8(this, 'quantile_curvature_overshoot_wick'),
           fanPosition: createSeriesPattern8(this, 'quantile_curvature_fan_position'),
+          fanPositionExtended: createSeriesPattern8(this, 'quantile_curvature_fan_position_extended'),
           trajectoryMu: createSeriesPattern8(this, 'quantile_curvature_trajectory_mu'),
           trajectoryBLo: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_lo'),
           trajectoryBMed: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_med'),
@@ -11769,7 +11771,7 @@ class BrkClient extends BrkClientBase {
    *
    * Block-bootstrap asymmetry inference for the asymmetric tail-curvature quantile price model: `Δb` (curvature asymmetry) with standard error, confidence interval and p-value, block-length sensitivity, plus the out-of-sample Diebold–Mariano diagnostics. Computed off the per-block compute loop and written to `<data>/models_research.json`; returns 404 until the first artifact has been produced.
    *
-   * The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position, expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/metrics` and query via `/api/metric/{metric}`.
+   * The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position (clamped and extended), expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/series/list` and query via `/api/series/{series}/{index}`.
    *
    * Endpoint: `GET /api/v1/models/research`
    * @param {{ signal?: AbortSignal, onValue?: (value: *) => void }} [options]
