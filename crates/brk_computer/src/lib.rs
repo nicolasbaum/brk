@@ -6,9 +6,9 @@ use brk_error::Result;
 use brk_fetcher::Fetcher;
 use brk_indexer::Indexer;
 use brk_traversable::Traversable;
-use brk_types::{Height, Version};
+use brk_types::{Day1, Height, Version};
 use tracing::info;
-use vecdb::{AnyExportableVec, Exit, Ro, Rw, StorageMode};
+use vecdb::{AnyExportableVec, AnyVec, Exit, ReadableOptionVec, Ro, Rw, StorageMode};
 
 mod blocks;
 mod cointime;
@@ -22,6 +22,7 @@ mod investing;
 pub mod macro_economy;
 mod market;
 mod mining;
+pub mod models;
 mod outputs;
 mod pools;
 pub mod prices;
@@ -40,6 +41,7 @@ pub struct Computer<M: StorageMode = Rw> {
     pub investing: Box<investing::Vecs<M>>,
     pub macro_economy: Box<macro_economy::Vecs<M>>,
     pub market: Box<market::Vecs<M>>,
+    pub models: Box<models::Vecs<M>>,
     pub pools: Box<pools::Vecs<M>>,
     pub prices: Box<prices::Vecs<M>>,
     #[traversable(flatten)]
@@ -221,6 +223,10 @@ impl Computer {
             macro_economy::Vecs::forced_import(&computed_path, VERSION)
         })?);
 
+        let models = Box::new(timed("Imported models", || {
+            models::Vecs::forced_import(&computed_path, VERSION)
+        })?);
+
         info!("Total import time: {:?}", import_start.elapsed());
 
         let this = Self {
@@ -232,6 +238,7 @@ impl Computer {
             investing,
             macro_economy,
             market,
+            models,
             distribution,
             supply,
             pools,
@@ -260,6 +267,7 @@ impl Computer {
             investing::DB_NAME,
             macro_economy::DB_NAME,
             market::DB_NAME,
+            models::DB_NAME,
             pools::DB_NAME,
             prices::DB_NAME,
             distribution::DB_NAME,
@@ -470,8 +478,30 @@ impl Computer {
             .rarity_meter
             .compute(indexer, &self.distribution, &self.prices, exit)?;
 
+        timed("Computed models", || {
+            self.models.compute(
+                &self.prices,
+                &self.indicators,
+                &self.supply,
+                &self.indexes,
+                exit,
+            )
+        })?;
+
         info!("Total compute time: {:?}", compute_start.elapsed());
         Ok(())
+    }
+}
+
+impl<M: StorageMode> Computer<M> {
+    /// Snapshot of the daily close price (USD) per `Day1` index — `None` where
+    /// there is no positive close. Cheap to clone into an off-loop research
+    /// thread (no vecdb handles cross the thread boundary).
+    pub fn daily_closes(&self) -> Vec<Option<f64>> {
+        let close = &self.prices.split.close.usd.day1;
+        (0..self.indexes.day1.date.len())
+            .map(|i| close.collect_one_flat(Day1::from(i)).map(f64::from))
+            .collect()
     }
 }
 
@@ -521,6 +551,7 @@ impl_iter_named!(
     investing,
     macro_economy,
     market,
+    models,
     pools,
     prices,
     distribution,

@@ -15,6 +15,7 @@ brk_cohort = { workspace = true }
 brk_fetcher = { workspace = true }
 brk_indexer = { workspace = true }
 brk_oracle = { workspace = true }
+brk_quantile = { workspace = true }
 brk_logger = { workspace = true }
 brk_rpc = { workspace = true }
 brk_traversable = { workspace = true }

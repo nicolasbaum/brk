@@ -101,6 +101,12 @@ pub fn main() -> anyhow::Result<()> {
 
     let _handle = runtime.spawn(future);
 
+    // The models research artifact (block-bootstrap asymmetry inference + OOS)
+    // is heavy and recomputed only once per process, on a detached thread so it
+    // never stalls the per-block compute loop or the watchdog.
+    let mut research_started = false;
+    let research_path = config.brkdir().join("models_research.json");
+
     loop {
         client.wait_for_synced_node()?;
 
@@ -119,6 +125,16 @@ pub fn main() -> anyhow::Result<()> {
         Mimalloc::collect();
 
         computer.compute(&indexer, &exit)?;
+
+        if !research_started {
+            research_started = true;
+            let closes = computer.daily_closes();
+            let path = research_path.clone();
+            thread::spawn(move || match brk_computer::models::write_research_artifact(&closes, &path) {
+                Ok(()) => info!("Models research artifact written to {path:?}"),
+                Err(e) => warn!("Models research artifact failed: {e}"),
+            });
+        }
 
         indexer.advance_safe_lengths()?;
 

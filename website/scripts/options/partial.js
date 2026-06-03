@@ -21,6 +21,7 @@ import {
   createAddressBalanceGiniLeaf,
 } from "./distribution/index.js";
 import { createMarketSection } from "./market.js";
+import { createModelsSection } from "./models.js";
 import { createMacroEconomySection } from "./macro_economy.js";
 import { createNetworkSection } from "./network.js";
 import { createMiningSection } from "./mining.js";
@@ -68,6 +69,8 @@ export function createPartialOptions() {
       name: "Charts",
       tree: [
         createMarketSection(),
+
+        createModelsSection(),
 
         createMacroEconomySection(),
 

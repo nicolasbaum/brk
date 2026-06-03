@@ -2818,13 +2818,13 @@ impl BpsPercentRatioPattern {
 }
 
 /// Pattern struct for repeated tree structure.
-pub struct CentsSatsUsdPattern3 {
+pub struct CentsSatsUsdPattern4 {
     pub cents: SeriesPattern2<Cents>,
     pub sats: SeriesPattern2<Sats>,
     pub usd: SeriesPattern2<Dollars>,
 }
 
-impl CentsSatsUsdPattern3 {
+impl CentsSatsUsdPattern4 {
     /// Create a new pattern node with accumulated series name.
     pub fn new(client: Arc<BrkClientBase>, acc: String) -> Self {
         Self {
@@ -2885,6 +2885,24 @@ impl CentsSatsUsdPattern {
             cents: SeriesPattern1::new(client.clone(), _m(&acc, "cents")),
             sats: SeriesPattern1::new(client.clone(), _m(&acc, "sats")),
             usd: SeriesPattern1::new(client.clone(), acc.clone()),
+        }
+    }
+}
+
+/// Pattern struct for repeated tree structure.
+pub struct CentsSatsUsdPattern2 {
+    pub cents: SeriesPattern8<Cents>,
+    pub sats: SeriesPattern8<Sats>,
+    pub usd: SeriesPattern8<Dollars>,
+}
+
+impl CentsSatsUsdPattern2 {
+    /// Create a new pattern node with accumulated series name.
+    pub fn new(client: Arc<BrkClientBase>, acc: String) -> Self {
+        Self {
+            cents: SeriesPattern8::new(client.clone(), _m(&acc, "cents")),
+            sats: SeriesPattern8::new(client.clone(), _m(&acc, "sats")),
+            usd: SeriesPattern8::new(client.clone(), acc.clone()),
         }
     }
 }
@@ -3534,6 +3552,7 @@ pub struct SeriesTree {
     pub investing: SeriesTree_Investing,
     pub macro_economy: SeriesTree_MacroEconomy,
     pub market: SeriesTree_Market,
+    pub models: SeriesTree_Models,
     pub pools: SeriesTree_Pools,
     pub prices: SeriesTree_Prices,
     pub supply: SeriesTree_Supply,
@@ -3557,6 +3576,7 @@ impl SeriesTree {
             investing: SeriesTree_Investing::new(client.clone(), format!("{base_path}_investing")),
             macro_economy: SeriesTree_MacroEconomy::new(client.clone(), format!("{base_path}_macro_economy")),
             market: SeriesTree_Market::new(client.clone(), format!("{base_path}_market")),
+            models: SeriesTree_Models::new(client.clone(), format!("{base_path}_models")),
             pools: SeriesTree_Pools::new(client.clone(), format!("{base_path}_pools")),
             prices: SeriesTree_Prices::new(client.clone(), format!("{base_path}_prices")),
             supply: SeriesTree_Supply::new(client.clone(), format!("{base_path}_supply")),
@@ -6854,6 +6874,89 @@ impl SeriesTree_Market_Technical_Macd_1m {
 }
 
 /// Series tree node.
+pub struct SeriesTree_Models {
+    pub quantile_curvature: SeriesTree_Models_QuantileCurvature,
+    pub baselines: SeriesTree_Models_Baselines,
+}
+
+impl SeriesTree_Models {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            quantile_curvature: SeriesTree_Models_QuantileCurvature::new(client.clone(), format!("{base_path}_quantile_curvature")),
+            baselines: SeriesTree_Models_Baselines::new(client.clone(), format!("{base_path}_baselines")),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_Models_QuantileCurvature {
+    pub q01: CentsSatsUsdPattern2,
+    pub q10: CentsSatsUsdPattern2,
+    pub q25: CentsSatsUsdPattern2,
+    pub q50: CentsSatsUsdPattern2,
+    pub q75: CentsSatsUsdPattern2,
+    pub q95: CentsSatsUsdPattern2,
+    pub q99: CentsSatsUsdPattern2,
+    pub dislocation_close: SeriesPattern8<StoredF32>,
+    pub dislocation_wick: SeriesPattern8<StoredF32>,
+    pub overshoot_close: SeriesPattern8<StoredF32>,
+    pub overshoot_wick: SeriesPattern8<StoredF32>,
+    pub fan_position: SeriesPattern8<StoredF32>,
+    pub trajectory_mu: SeriesPattern8<StoredF32>,
+    pub trajectory_b_lo: SeriesPattern8<StoredF32>,
+    pub trajectory_b_med: SeriesPattern8<StoredF32>,
+    pub trajectory_b_hi: SeriesPattern8<StoredF32>,
+    pub trajectory_delta_b: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_Models_QuantileCurvature {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            q01: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q01".to_string()),
+            q10: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q10".to_string()),
+            q25: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q25".to_string()),
+            q50: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q50".to_string()),
+            q75: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q75".to_string()),
+            q95: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q95".to_string()),
+            q99: CentsSatsUsdPattern2::new(client.clone(), "quantile_curvature_q99".to_string()),
+            dislocation_close: SeriesPattern8::new(client.clone(), "quantile_curvature_dislocation_close".to_string()),
+            dislocation_wick: SeriesPattern8::new(client.clone(), "quantile_curvature_dislocation_wick".to_string()),
+            overshoot_close: SeriesPattern8::new(client.clone(), "quantile_curvature_overshoot_close".to_string()),
+            overshoot_wick: SeriesPattern8::new(client.clone(), "quantile_curvature_overshoot_wick".to_string()),
+            fan_position: SeriesPattern8::new(client.clone(), "quantile_curvature_fan_position".to_string()),
+            trajectory_mu: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_mu".to_string()),
+            trajectory_b_lo: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_lo".to_string()),
+            trajectory_b_med: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_med".to_string()),
+            trajectory_b_hi: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_hi".to_string()),
+            trajectory_delta_b: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_delta_b".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
+pub struct SeriesTree_Models_Baselines {
+    pub ols_power_law_price: CentsSatsUsdPattern2,
+    pub ols_power_law_error: SeriesPattern8<StoredF32>,
+    pub s2f_price: CentsSatsUsdPattern2,
+    pub s2f_error: SeriesPattern8<StoredF32>,
+    pub s2fx_price: CentsSatsUsdPattern2,
+    pub s2fx_error: SeriesPattern8<StoredF32>,
+}
+
+impl SeriesTree_Models_Baselines {
+    pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
+        Self {
+            ols_power_law_price: CentsSatsUsdPattern2::new(client.clone(), "baseline_ols_power_law".to_string()),
+            ols_power_law_error: SeriesPattern8::new(client.clone(), "baseline_ols_power_law_error".to_string()),
+            s2f_price: CentsSatsUsdPattern2::new(client.clone(), "baseline_s2f".to_string()),
+            s2f_error: SeriesPattern8::new(client.clone(), "baseline_s2f_error".to_string()),
+            s2fx_price: CentsSatsUsdPattern2::new(client.clone(), "baseline_s2fx".to_string()),
+            s2fx_error: SeriesPattern8::new(client.clone(), "baseline_s2fx_error".to_string()),
+        }
+    }
+}
+
+/// Series tree node.
 pub struct SeriesTree_Pools {
     pub pool: SeriesPattern18<PoolSlug>,
     pub major: SeriesTree_Pools_Major,
@@ -7241,19 +7344,19 @@ impl SeriesTree_Prices {
 
 /// Series tree node.
 pub struct SeriesTree_Prices_Split {
-    pub open: CentsSatsUsdPattern3,
-    pub high: CentsSatsUsdPattern3,
-    pub low: CentsSatsUsdPattern3,
-    pub close: CentsSatsUsdPattern3,
+    pub open: CentsSatsUsdPattern4,
+    pub high: CentsSatsUsdPattern4,
+    pub low: CentsSatsUsdPattern4,
+    pub close: CentsSatsUsdPattern4,
 }
 
 impl SeriesTree_Prices_Split {
     pub fn new(client: Arc<BrkClientBase>, base_path: String) -> Self {
         Self {
-            open: CentsSatsUsdPattern3::new(client.clone(), "price_open".to_string()),
-            high: CentsSatsUsdPattern3::new(client.clone(), "price_high".to_string()),
-            low: CentsSatsUsdPattern3::new(client.clone(), "price_low".to_string()),
-            close: CentsSatsUsdPattern3::new(client.clone(), "price_close".to_string()),
+            open: CentsSatsUsdPattern4::new(client.clone(), "price_open".to_string()),
+            high: CentsSatsUsdPattern4::new(client.clone(), "price_high".to_string()),
+            low: CentsSatsUsdPattern4::new(client.clone(), "price_low".to_string()),
+            close: CentsSatsUsdPattern4::new(client.clone(), "price_close".to_string()),
         }
     }
 }
