@@ -1417,30 +1417,36 @@ export function createChart({ parent, brk, fitContent }) {
 
       const defaultColor = unit === Unit.usd ? colors.usd : colors.bitcoin;
 
-      // Keep overlaid series visually distinct: series without an explicit color
-      // would all fall back to `defaultColor` and become indistinguishable. First
-      // reserve every explicit color used in this pane, then hand each uncolored
-      // Line/Dots series a distinct color — the unit default if still free, else a
-      // spaced palette entry — so no two overlaid series share the same color.
+      // Keep overlaid series visually distinct AND well separated: series without
+      // an explicit color would all fall back to one `defaultColor`. Reserve the
+      // pane's explicit colors, then spread the uncolored Line/Dots series across
+      // the (hue-ordered) palette via `colors.at(i, count)` so overlaid lines get
+      // strongly contrasting hues (e.g. red vs cyan, not red vs orange) that read
+      // in both light and dark themes. A lone uncolored series keeps the unit
+      // default; explicit author colors are never overridden.
       const blueprints = map.get(unit);
       const usedColors = new Set();
+      let autoTotal = 0;
       blueprints?.forEach((bp) => {
         if (!Object.keys(bp.series.by).includes(idx)) return;
-        const b = /** @type {{ color?: Color, colors?: (Color | undefined)[] }} */ (
+        const b = /** @type {{ color?: Color, colors?: (Color | undefined)[], colorFn?: unknown }} */ (
           bp
         );
         if (b.color) usedColors.add(b.color);
         b.colors?.forEach((c) => c && usedColors.add(c));
+        const lineLike =
+          bp.type === undefined || bp.type === "Line" || bp.type === "Dots";
+        if (lineLike && !b.color && !b.colorFn) autoTotal++;
       });
-      let paletteCursor = 0;
+      let autoSeen = 0;
       const autoColor = () => {
-        if (!usedColors.has(defaultColor)) {
-          usedColors.add(defaultColor);
-          return defaultColor;
+        if (autoTotal <= 1) return defaultColor;
+        // Maximum hue separation for the group; fall back to any unused palette
+        // entry if a spread pick lands on a color already taken in this pane.
+        let c = colors.at(autoSeen++, autoTotal);
+        if (usedColors.has(c)) {
+          c = colors.arr.find((p) => !usedColors.has(p)) ?? c;
         }
-        let c = colors.at(paletteCursor++);
-        let guard = 0;
-        while (usedColors.has(c) && guard++ < 64) c = colors.at(paletteCursor++);
         usedColors.add(c);
         return c;
       };
