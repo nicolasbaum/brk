@@ -9,6 +9,7 @@ use axum::{
 use crate::{
     Error,
     api::{series::ApiSeriesRoutes, server::ServerRoutes, urpd::ApiUrpdRoutes},
+    cache::CacheParams,
     extended::{ResponseExtended, TransformResponseExtended},
 };
 
@@ -60,7 +61,11 @@ impl ApiRoutes for ApiRouter<AppState> {
                     async |headers: HeaderMap,
                            Extension(api): Extension<OpenApiJson>|
                            -> Response {
-                        Response::static_json_bytes(&headers, api.bytes())
+                        Response::static_json_bytes(
+                            &headers,
+                            api.bytes(),
+                            CacheParams::content(api.content_hash()),
+                        )
                     },
                     |op| {
                         op.id("get_openapi")
@@ -76,7 +81,11 @@ impl ApiRoutes for ApiRouter<AppState> {
                     async |headers: HeaderMap,
                            Extension(api): Extension<ApiJson>|
                            -> Response {
-                        Response::static_json_bytes(&headers, api.bytes())
+                        Response::static_json_bytes(
+                            &headers,
+                            api.bytes(),
+                            CacheParams::content(api.content_hash()),
+                        )
                     },
                     |op| {
                         op.id("get_api")

@@ -49,11 +49,24 @@ impl CacheParams {
     }
 
     /// Deploy-tied response: etag from the build version. Used directly
-    /// by static handlers (OpenAPI spec, scalar bundle) that don't have
-    /// a [`CacheStrategy`] context.
+    /// by static handlers (the scalar bundle) that change only on rebuild.
     pub fn deploy() -> Self {
         Self {
             etag: format!("d{VERSION}").into(),
+            cache_control: CC,
+            cdn_cache_control: cdn_cached(),
+        }
+    }
+
+    /// Content-addressed response: etag from a hash of the body bytes. Used by
+    /// the OpenAPI spec handlers — the spec content changes whenever routes or
+    /// schemas change, which can happen WITHOUT a `VERSION` bump, so a
+    /// deploy-tied etag would let clients/CDN keep serving a stale spec (a
+    /// false 304 against the unchanged version). Hashing the content makes the
+    /// etag move iff the bytes move.
+    pub fn content(hash: u64) -> Self {
+        Self {
+            etag: format!("c{hash:x}").into(),
             cache_control: CC,
             cdn_cache_control: cdn_cached(),
         }
@@ -152,6 +165,18 @@ mod tests {
 
     fn h(n: u64) -> BlockHashPrefix {
         BlockHashPrefix::from(n)
+    }
+
+    #[test]
+    fn content_etag_tracks_hash_not_version() {
+        // The whole point: the etag moves with the content hash, so a spec
+        // change invalidates caches even when VERSION (and thus deploy()) is
+        // unchanged.
+        let a = CacheParams::content(0xabcd);
+        let b = CacheParams::content(0xdead);
+        assert_eq!(a.etag.as_str(), "cabcd");
+        assert_ne!(a.etag.as_str(), b.etag.as_str());
+        assert_ne!(a.etag.as_str(), CacheParams::deploy().etag.as_str());
     }
 
     #[test]

@@ -12,7 +12,7 @@ where
     Self: Sized,
 {
     fn new_not_modified(params: &CacheParams) -> Self;
-    fn static_json_bytes(headers: &HeaderMap, bytes: Bytes) -> Self;
+    fn static_json_bytes(headers: &HeaderMap, bytes: Bytes, params: CacheParams) -> Self;
     fn static_bytes(
         headers: &HeaderMap,
         bytes: &'static [u8],
@@ -28,8 +28,7 @@ impl ResponseExtended for Response<Body> {
         response
     }
 
-    fn static_json_bytes(headers: &HeaderMap, bytes: Bytes) -> Self {
-        let params = CacheParams::deploy();
+    fn static_json_bytes(headers: &HeaderMap, bytes: Bytes, params: CacheParams) -> Self {
         if params.matches_etag(headers) {
             return Self::new_not_modified(&params);
         }

@@ -1,20 +1,37 @@
+use std::hash::Hasher;
+
 use aide::openapi::OpenApi;
 use axum::body::Bytes;
+use rustc_hash::FxHasher;
 use serde_json::{Map, Value};
 
 /// Compact OpenAPI spec optimized for LLM consumption.
 /// Pre-serialized at startup, served as raw bytes per request.
 #[derive(Clone)]
-pub struct ApiJson(Bytes);
+pub struct ApiJson {
+    bytes: Bytes,
+    /// FxHash of `bytes` (see [`super::OpenApiJson`]) for a content-addressed ETag.
+    content_hash: u64,
+}
 
 impl ApiJson {
     pub fn new(openapi: &OpenApi) -> Self {
         let json = serde_json::to_string(openapi).unwrap();
-        Self(Bytes::from(compact_json(&json)))
+        let bytes = Bytes::from(compact_json(&json));
+        let mut hasher = FxHasher::default();
+        hasher.write(&bytes);
+        Self {
+            content_hash: hasher.finish(),
+            bytes,
+        }
     }
 
     pub fn bytes(&self) -> Bytes {
-        self.0.clone()
+        self.bytes.clone()
+    }
+
+    pub fn content_hash(&self) -> u64 {
+        self.content_hash
     }
 }
 
