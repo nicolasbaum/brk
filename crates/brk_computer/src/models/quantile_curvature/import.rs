@@ -41,6 +41,11 @@ impl Vecs {
                 "quantile_curvature_fan_position",
                 version,
             )?,
+            fan_position_extended: EagerVec::forced_import(
+                db,
+                "quantile_curvature_fan_position_extended",
+                version,
+            )?,
             traj_seed: None,
             trajectory_mu: EagerVec::forced_import(db, "quantile_curvature_trajectory_mu", version)?,
             trajectory_b_lo: EagerVec::forced_import(

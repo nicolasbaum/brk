@@ -136,6 +136,101 @@ pub(crate) fn build_fan_position(
         .collect()
 }
 
+/// Inverse-normal (probit) of each [`TAUS`] level — the z-score the fitted fan
+/// places each band at. Hardcoded because `TAUS` is fixed; the
+/// `band_z_matches_taus` test guards against `TAUS` drifting out of sync.
+const BAND_Z: [f64; BAND_COUNT] = [
+    -2.326_347_874_041, // τ = 0.01
+    -1.281_551_559_461, // τ = 0.10
+    -0.674_489_750_196, // τ = 0.25
+    0.0,                // τ = 0.50
+    0.674_489_750_196,  // τ = 0.75
+    1.644_853_626_951,  // τ = 0.95
+    2.326_347_874_041,  // τ = 0.99
+];
+
+/// Widest z (model-implied standard deviations) the extended fan position
+/// reports. Spot beyond this maps to a finite, f32-representable percentile
+/// (`Φ(±4) ≈ 3.2e-5 / 0.999_968`) instead of collapsing onto 0/1 — ~1.7× the
+/// outer band's z (±2.33), so genuine capitulation/euphoria past the bands still
+/// separate by magnitude rather than all reading as the same extreme.
+const Z_CLAMP: f64 = 4.0;
+
+/// Per-day **extended fan position**: like [`build_fan_position`], the
+/// model-implied quantile `τ` at which the fitted fan equals spot — but mapped
+/// through probit (z-score) space and *not* clamped to the outer bands. Spot is
+/// linearly interpolated across the seven `(log-price, BAND_Z)` knots and
+/// extrapolated along the outer segment when it sits beyond q01/q99, so a deep
+/// capitulation reads `< 0.01` and a blow-off top reads `> 0.99` (up to
+/// `Φ(±Z_CLAMP)`), where the plain [`build_fan_position`] saturates. Same NaN
+/// rules: no price, a non-positive price, or a degenerate (zero) top band → `NaN`.
+pub(crate) fn build_fan_position_extended(
+    prices: &[Option<f64>],
+    bands: &[Vec<Cents>; BAND_COUNT],
+) -> Vec<StoredF32> {
+    let nan = StoredF32::from(f32::NAN);
+    (0..prices.len())
+        .map(|i| {
+            let Some(p) = prices[i] else { return nan };
+            if p <= 0.0 || f64::from(bands[BAND_COUNT - 1][i]) <= 0.0 {
+                return nan;
+            }
+            let lg = |k: usize| (f64::from(bands[k][i]) / 100.0).max(1e-9).log10();
+            let lp = p.log10();
+
+            // Map log-price → z-score: interpolate within the bands, extrapolate
+            // along the nearest outer segment beyond them.
+            let z = if lp <= lg(0) {
+                interp_z(lp, lg(0), lg(1), BAND_Z[0], BAND_Z[1])
+            } else if lp >= lg(BAND_COUNT - 1) {
+                let (a, b) = (BAND_COUNT - 2, BAND_COUNT - 1);
+                interp_z(lp, lg(a), lg(b), BAND_Z[a], BAND_Z[b])
+            } else {
+                let mut found = f64::NAN;
+                for k in 0..BAND_COUNT - 1 {
+                    let (lo, hi) = (lg(k), lg(k + 1));
+                    if lp >= lo && lp <= hi {
+                        found = interp_z(lp, lo, hi, BAND_Z[k], BAND_Z[k + 1]);
+                        break;
+                    }
+                }
+                found
+            };
+            if z.is_nan() {
+                return nan; // monotone bands guarantee a bracket; unreachable in practice
+            }
+            StoredF32::from(normal_cdf(z.clamp(-Z_CLAMP, Z_CLAMP)) as f32)
+        })
+        .collect()
+}
+
+/// Linearly map `lp` from the `[lo, hi]` log-price segment onto the
+/// `[z_lo, z_hi]` z-score segment, extrapolating when `lp` is outside `[lo, hi]`.
+/// A degenerate (zero-width) segment yields `z_lo` rather than dividing by zero.
+fn interp_z(lp: f64, lo: f64, hi: f64, z_lo: f64, z_hi: f64) -> f64 {
+    if hi <= lo {
+        return z_lo;
+    }
+    z_lo + (lp - lo) / (hi - lo) * (z_hi - z_lo)
+}
+
+/// Standard-normal CDF `Φ(z)` via the Abramowitz & Stegun 7.1.26 `erf`
+/// approximation (`|error| < 1.5e-7` — ample for an f32 percentile).
+fn normal_cdf(z: f64) -> f64 {
+    0.5 * (1.0 + erf(z / std::f64::consts::SQRT_2))
+}
+
+fn erf(x: f64) -> f64 {
+    let sign = if x < 0.0 { -1.0 } else { 1.0 };
+    let x = x.abs();
+    let t = 1.0 / (1.0 + 0.327_591_1 * x);
+    let poly = ((((1.061_405_429 * t - 1.453_152_027) * t + 1.421_413_741) * t - 0.284_496_736)
+        * t
+        + 0.254_829_592)
+        * t;
+    sign * (1.0 - poly * (-x * x).exp())
+}
+
 /// Per-day relative deviation `(price − band)/band` of `prices` (USD) against a
 /// stored band (cents). Negative ⇒ price below the band — an **undershoot**, used
 /// as dislocation against the 1% band; positive ⇒ above — an **overshoot**, the
@@ -258,6 +353,47 @@ mod tests {
         assert!(f64::from(build_fan_position(&[Some(-1.0)], &bands)[0]).is_nan());
         let zero_fan: [Vec<Cents>; BAND_COUNT] = std::array::from_fn(|_| vec![Cents::ZERO]);
         assert!(f64::from(build_fan_position(&[Some(40.0)], &zero_fan)[0]).is_nan());
+    }
+
+    #[test]
+    fn band_z_matches_taus() {
+        // The hardcoded probit knots must stay the inverse-normal of TAUS, or the
+        // extended fan position would mislabel each band's z-score.
+        for (z, &tau) in BAND_Z.iter().zip(TAUS.iter()) {
+            assert!(
+                (normal_cdf(*z) - tau).abs() < 1e-3,
+                "Φ({z}) = {} ≠ τ {tau}",
+                normal_cdf(*z)
+            );
+        }
+    }
+
+    #[test]
+    fn extended_fan_position_unclamps_beyond_the_bands() {
+        // Same ascending fan at $10..$70 (taus 0.01…0.99) as the clamped test.
+        let bands: [Vec<Cents>; BAND_COUNT] =
+            std::array::from_fn(|k| vec![Cents::from((10.0 * (k as f64 + 1.0)) * 100.0)]);
+        let ext = |p: f64| f64::from(build_fan_position_extended(&[Some(p)], &bands)[0]);
+
+        // On the median band → ≈ 0.50, same as the clamped variant.
+        assert!((ext(40.0) - 0.50).abs() < 1e-3);
+
+        // Below the bottom / above the top band → escapes [0.01, 0.99] (where the
+        // plain fan_position saturates) and stays monotone in price.
+        assert!(ext(5.0) < TAUS[0], "deep capitulation must read below q01");
+        assert!(ext(100.0) > TAUS[BAND_COUNT - 1], "blow-off top must read above q99");
+        assert!(ext(1.0) <= ext(5.0) && ext(5.0) < ext(40.0) && ext(40.0) < ext(100.0));
+
+        // Extremes stay finite and strictly inside (0, 1) — never collapse to 0/1.
+        let hi = ext(100_000_000.0);
+        let lo = ext(0.000_001);
+        assert!(lo > 0.0 && hi < 1.0, "clamped to Φ(±{Z_CLAMP}), not 0/1: lo={lo} hi={hi}");
+
+        // Same NaN rules as the clamped variant.
+        assert!(f64::from(build_fan_position_extended(&[None], &bands)[0]).is_nan());
+        assert!(f64::from(build_fan_position_extended(&[Some(-1.0)], &bands)[0]).is_nan());
+        let zero_fan: [Vec<Cents>; BAND_COUNT] = std::array::from_fn(|_| vec![Cents::ZERO]);
+        assert!(f64::from(build_fan_position_extended(&[Some(40.0)], &zero_fan)[0]).is_nan());
     }
 
     #[test]

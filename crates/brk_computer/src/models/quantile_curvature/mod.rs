@@ -59,6 +59,12 @@ pub struct Vecs<M: StorageMode = Rw> {
     /// fan, so it backfills complete rather than day-by-day like the trajectory.
     pub fan_position: FanPositionVec<M>,
 
+    /// Like `fan_position` but mapped through probit (z-score) space and *not*
+    /// clamped to the outer bands: spot beyond q01/q99 keeps its magnitude
+    /// (`< 0.01` for capitulation, `> 0.99` for euphoria, up to `Φ(±4σ)`) instead
+    /// of saturating. Use this when the depth/height of a tail excursion matters.
+    pub fan_position_extended: FanPositionVec<M>,
+
     /// In-memory warm seed for the next expanding-window backfill fit. Not
     /// stored; the first fit in a fresh process is cold, the rest warm-chain.
     #[traversable(skip)]

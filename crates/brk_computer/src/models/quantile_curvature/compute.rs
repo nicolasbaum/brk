@@ -4,7 +4,10 @@ use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableOptionVec, ReadableVec, Writable
 
 use super::{
     Vecs,
-    band::{Fingerprint, build_band_deviation, build_bands, build_fan_position, should_refit},
+    band::{
+        Fingerprint, build_band_deviation, build_bands, build_fan_position,
+        build_fan_position_extended, should_refit,
+    },
     trajectory::fit_through,
 };
 use crate::{indexes, models::util::full_rewrite, prices};
@@ -40,12 +43,15 @@ impl Vecs {
             let q01 = bands[0].clone();
             let q99 = bands[bands.len() - 1].clone();
             // Fan position (implied quantile of spot) is a direct transform of the
-            // bands, so derive it here before the bands are consumed below.
+            // bands, so derive both the clamped and extended forms here before the
+            // bands are consumed below.
             let fan_position = build_fan_position(&closes, &bands);
+            let fan_position_extended = build_fan_position_extended(&closes, &bands);
             for (vec, values) in self.bands_mut().into_iter().zip(bands) {
                 full_rewrite(vec, &values, exit)?;
             }
             full_rewrite(&mut self.fan_position, &fan_position, exit)?;
+            full_rewrite(&mut self.fan_position_extended, &fan_position_extended, exit)?;
 
             // Per-day intraday extremes: low for the bottom wick, high for the top.
             let lows: Vec<Option<f64>> = (0..day_count)

@@ -27,9 +27,9 @@ impl ModelsRoutes for ApiRouter<AppState> {
                          compute loop and written to `<data>/models_research.json`; returns 404 \
                          until the first artifact has been produced.\n\nThe model's fitted result \
                          series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, \
-                         overshoot, fan position, expanding-window trajectory, and the \
+                         overshoot, fan position (clamped and extended), expanding-window trajectory, and the \
                          `baseline_*` prior models) are exposed as regular metrics — list them \
-                         via `/api/metrics` and query via `/api/metric/{metric}`.",
+                         via `/api/series/list` and query via `/api/series/{series}/{index}`.",
                     )
                     .json_response::<serde_json::Value>()
                     .not_found()
