@@ -51,11 +51,20 @@ export function createModelsSection() {
             name: "Fan Position",
             title: "Fan Position Q(t) — Model-Implied Quantile of Spot",
             bottom: [
+              // Clamped: linear-in-τ, saturates at the q01/q99 bands (0.01/0.99).
               line({
                 series: quantileCurvature.fanPosition,
-                name: "Q(t)",
+                name: "Q(t) Clamped",
                 unit: Unit.ratio,
                 color: colors.cyan,
+              }),
+              // Extended: probit-space, extrapolates beyond the bands (±4σ), so
+              // deep capitulation reads <0.01 and blow-off tops read >0.99.
+              line({
+                series: quantileCurvature.fanPositionExtended,
+                name: "Q(t) Extended",
+                unit: Unit.ratio,
+                color: colors.amber,
               }),
             ],
           },
