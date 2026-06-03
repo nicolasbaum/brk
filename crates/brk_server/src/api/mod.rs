@@ -100,13 +100,33 @@ impl ApiRoutes for ApiRouter<AppState> {
             )
             .route("/api", get(Html::from(include_str!("./scalar.html"))))
             // Pre-compressed with: brotli -c -q 11 scalar.js > scalar.js.br
+            // Serve brotli only when the client advertises it (browsers omit
+            // `br` over plain-HTTP non-localhost origins); otherwise fall back
+            // to the uncompressed file so the script still decodes. Sending
+            // `content-encoding: br` unconditionally yields ERR_CONTENT_DECODING_FAILED.
             .route("/scalar.js", get(|headers: HeaderMap| async move {
-                Response::static_bytes(
-                    &headers,
-                    include_bytes!("./scalar.js.br").as_slice(),
-                    "application/javascript",
-                    "br",
-                )
+                let accepts_br = headers
+                    .get(axum::http::header::ACCEPT_ENCODING)
+                    .and_then(|v| v.to_str().ok())
+                    .is_some_and(|v| {
+                        v.split(',')
+                            .any(|enc| enc.trim().split(';').next() == Some("br"))
+                    });
+                if accepts_br {
+                    Response::static_bytes(
+                        &headers,
+                        include_bytes!("./scalar.js.br").as_slice(),
+                        "application/javascript",
+                        Some("br"),
+                    )
+                } else {
+                    Response::static_bytes(
+                        &headers,
+                        include_bytes!("./scalar.js").as_slice(),
+                        "application/javascript",
+                        None,
+                    )
+                }
             }))
             .route(
                 "/.well-known/openapi.json",

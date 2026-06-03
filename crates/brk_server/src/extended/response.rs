@@ -17,7 +17,7 @@ where
         headers: &HeaderMap,
         bytes: &'static [u8],
         content_type: &'static str,
-        content_encoding: &'static str,
+        content_encoding: Option<&'static str>,
     ) -> Self;
 }
 
@@ -44,7 +44,7 @@ impl ResponseExtended for Response<Body> {
         headers: &HeaderMap,
         bytes: &'static [u8],
         content_type: &'static str,
-        content_encoding: &'static str,
+        content_encoding: Option<&'static str>,
     ) -> Self {
         let params = CacheParams::deploy();
         if params.matches_etag(headers) {
@@ -53,7 +53,9 @@ impl ResponseExtended for Response<Body> {
         let mut response = Response::new(Body::from(bytes));
         let h = response.headers_mut();
         h.insert(header::CONTENT_TYPE, content_type.parse().unwrap());
-        h.insert(header::CONTENT_ENCODING, content_encoding.parse().unwrap());
+        if let Some(content_encoding) = content_encoding {
+            h.insert(header::CONTENT_ENCODING, content_encoding.parse().unwrap());
+        }
         h.insert_vary_accept_encoding();
         params.apply_to(h);
         response
