@@ -35,7 +35,7 @@ pub fn main() -> Result<()> {
 
     let indexer = Indexer::forced_import(&outputs_dir)?;
 
-    let computer = Computer::forced_import(&outputs_dir, &indexer)?;
+    let computer = Computer::forced_import(&outputs_dir, &indexer, None)?;
 
     let mempool = Mempool::new(&client);
     let mempool_clone = mempool.clone();

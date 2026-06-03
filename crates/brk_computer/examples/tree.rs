@@ -11,7 +11,7 @@ pub fn main() -> color_eyre::Result<()> {
     fs::create_dir_all(&tmp)?;
 
     let indexer = Indexer::forced_import(&tmp)?;
-    let computer = Computer::forced_import(&tmp, &indexer)?;
+    let computer = Computer::forced_import(&tmp, &indexer, None)?;
 
     let tree = TreeNode::Branch(
         [

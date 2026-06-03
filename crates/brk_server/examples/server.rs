@@ -24,7 +24,7 @@ pub fn main() -> Result<()> {
 
     let reader = Reader::new(bitcoin_dir.join("blocks"), &client);
     let indexer = Indexer::forced_import(&outputs_dir)?;
-    let computer = Computer::forced_import(&outputs_dir, &indexer)?;
+    let computer = Computer::forced_import(&outputs_dir, &indexer, None)?;
 
     let mempool = Mempool::new(&client);
     let mempool_clone = mempool.clone();
