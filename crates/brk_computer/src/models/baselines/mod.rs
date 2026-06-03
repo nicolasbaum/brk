@@ -10,11 +10,11 @@ mod import;
 mod predict;
 
 use brk_traversable::Traversable;
-use brk_types::{Cents, Day1, StoredF32};
+use brk_types::{Day1, StoredF32};
 use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 
-/// A `Day1`-indexed predicted-price series, in cents.
-type PriceVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, Cents>>>;
+use crate::models::price::DayPrice;
+
 /// A `Day1`-indexed `log₁₀` forecast-error series.
 type ErrorVec<M> = <M as StorageMode>::Stored<EagerVec<PcoVec<Day1, StoredF32>>>;
 
@@ -24,10 +24,12 @@ pub struct Vecs<M: StorageMode = Rw> {
     #[traversable(skip)]
     last_fingerprint: Option<(usize, u64)>,
 
-    pub ols_power_law_price: PriceVec<M>,
+    /// Predicted prices, stored in cents and exposed as usd / cents / sats so
+    /// they overlay the spot price like any other BRK price.
+    pub ols_power_law_price: DayPrice<M>,
     pub ols_power_law_error: ErrorVec<M>,
-    pub s2f_price: PriceVec<M>,
+    pub s2f_price: DayPrice<M>,
     pub s2f_error: ErrorVec<M>,
-    pub s2fx_price: PriceVec<M>,
+    pub s2fx_price: DayPrice<M>,
     pub s2fx_error: ErrorVec<M>,
 }

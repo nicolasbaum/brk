@@ -8,6 +8,7 @@
 pub mod baselines;
 mod compute;
 mod import;
+pub(crate) mod price;
 pub mod quantile_curvature;
 pub mod research;
 mod util;

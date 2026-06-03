@@ -43,7 +43,7 @@ impl Vecs {
             .unwrap_or(0);
         let fingerprint = (day_count, last_close_cents);
         if self.last_fingerprint == Some(fingerprint)
-            && self.ols_power_law_price.len() == day_count
+            && self.ols_power_law_price.cents.len() == day_count
         {
             return Ok(());
         }
@@ -54,11 +54,11 @@ impl Vecs {
             s2fx,
         } = build_baselines(&inputs);
 
-        full_rewrite(&mut self.ols_power_law_price, &ols_power_law.price, exit)?;
+        full_rewrite(&mut self.ols_power_law_price.cents, &ols_power_law.price, exit)?;
         full_rewrite(&mut self.ols_power_law_error, &ols_power_law.error, exit)?;
-        full_rewrite(&mut self.s2f_price, &s2f.price, exit)?;
+        full_rewrite(&mut self.s2f_price.cents, &s2f.price, exit)?;
         full_rewrite(&mut self.s2f_error, &s2f.error, exit)?;
-        full_rewrite(&mut self.s2fx_price, &s2fx.price, exit)?;
+        full_rewrite(&mut self.s2fx_price.cents, &s2fx.price, exit)?;
         full_rewrite(&mut self.s2fx_error, &s2fx.error, exit)?;
 
         self.last_fingerprint = Some(fingerprint);

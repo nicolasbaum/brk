@@ -3685,7 +3685,7 @@ class BpsPercentRatioPattern:
         self.percent: SeriesPattern1[StoredF32] = SeriesPattern1(client, acc)
         self.ratio: SeriesPattern1[StoredF32] = SeriesPattern1(client, _m(acc, 'ratio'))
 
-class CentsSatsUsdPattern3:
+class CentsSatsUsdPattern4:
     """Pattern struct for repeated tree structure."""
     
     def __init__(self, client: BrkClient, acc: str):
@@ -3720,6 +3720,15 @@ class CentsSatsUsdPattern:
         self.cents: SeriesPattern1[Cents] = SeriesPattern1(client, _m(acc, 'cents'))
         self.sats: SeriesPattern1[SatsFract] = SeriesPattern1(client, _m(acc, 'sats'))
         self.usd: SeriesPattern1[Dollars] = SeriesPattern1(client, acc)
+
+class CentsSatsUsdPattern2:
+    """Pattern struct for repeated tree structure."""
+    
+    def __init__(self, client: BrkClient, acc: str):
+        """Create pattern node with accumulated series name."""
+        self.cents: SeriesPattern8[Cents] = SeriesPattern8(client, _m(acc, 'cents'))
+        self.sats: SeriesPattern8[Sats] = SeriesPattern8(client, _m(acc, 'sats'))
+        self.usd: SeriesPattern8[Dollars] = SeriesPattern8(client, acc)
 
 class CountEventsSupplyPattern:
     """Pattern struct for repeated tree structure."""
@@ -5605,6 +5614,46 @@ class SeriesTree_Market:
         self.moving_average: SeriesTree_Market_MovingAverage = SeriesTree_Market_MovingAverage(client)
         self.technical: SeriesTree_Market_Technical = SeriesTree_Market_Technical(client)
 
+class SeriesTree_Models_QuantileCurvature:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClient, base_path: str = ''):
+        self.q01: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q01')
+        self.q10: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q10')
+        self.q25: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q25')
+        self.q50: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q50')
+        self.q75: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q75')
+        self.q95: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q95')
+        self.q99: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'quantile_curvature_q99')
+        self.dislocation_close: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_dislocation_close')
+        self.dislocation_wick: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_dislocation_wick')
+        self.overshoot_close: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_overshoot_close')
+        self.overshoot_wick: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_overshoot_wick')
+        self.fan_position: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_fan_position')
+        self.trajectory_mu: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_mu')
+        self.trajectory_b_lo: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_b_lo')
+        self.trajectory_b_med: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_b_med')
+        self.trajectory_b_hi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_b_hi')
+        self.trajectory_delta_b: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_delta_b')
+
+class SeriesTree_Models_Baselines:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClient, base_path: str = ''):
+        self.ols_power_law_price: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'baseline_ols_power_law')
+        self.ols_power_law_error: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'baseline_ols_power_law_error')
+        self.s2f_price: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'baseline_s2f')
+        self.s2f_error: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'baseline_s2f_error')
+        self.s2fx_price: CentsSatsUsdPattern2 = CentsSatsUsdPattern2(client, 'baseline_s2fx')
+        self.s2fx_error: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'baseline_s2fx_error')
+
+class SeriesTree_Models:
+    """Series tree node."""
+    
+    def __init__(self, client: BrkClient, base_path: str = ''):
+        self.quantile_curvature: SeriesTree_Models_QuantileCurvature = SeriesTree_Models_QuantileCurvature(client)
+        self.baselines: SeriesTree_Models_Baselines = SeriesTree_Models_Baselines(client)
+
 class SeriesTree_Pools_Major:
     """Series tree node."""
     
@@ -5792,10 +5841,10 @@ class SeriesTree_Prices_Split:
     """Series tree node."""
     
     def __init__(self, client: BrkClient, base_path: str = ''):
-        self.open: CentsSatsUsdPattern3 = CentsSatsUsdPattern3(client, 'price_open')
-        self.high: CentsSatsUsdPattern3 = CentsSatsUsdPattern3(client, 'price_high')
-        self.low: CentsSatsUsdPattern3 = CentsSatsUsdPattern3(client, 'price_low')
-        self.close: CentsSatsUsdPattern3 = CentsSatsUsdPattern3(client, 'price_close')
+        self.open: CentsSatsUsdPattern4 = CentsSatsUsdPattern4(client, 'price_open')
+        self.high: CentsSatsUsdPattern4 = CentsSatsUsdPattern4(client, 'price_high')
+        self.low: CentsSatsUsdPattern4 = CentsSatsUsdPattern4(client, 'price_low')
+        self.close: CentsSatsUsdPattern4 = CentsSatsUsdPattern4(client, 'price_close')
 
 class SeriesTree_Prices_Ohlc:
     """Series tree node."""
@@ -6717,6 +6766,7 @@ class SeriesTree:
         self.investing: SeriesTree_Investing = SeriesTree_Investing(client)
         self.macro_economy: SeriesTree_MacroEconomy = SeriesTree_MacroEconomy(client)
         self.market: SeriesTree_Market = SeriesTree_Market(client)
+        self.models: SeriesTree_Models = SeriesTree_Models(client)
         self.pools: SeriesTree_Pools = SeriesTree_Pools(client)
         self.prices: SeriesTree_Prices = SeriesTree_Prices(client)
         self.supply: SeriesTree_Supply = SeriesTree_Supply(client)

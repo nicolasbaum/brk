@@ -4266,19 +4266,19 @@ function createBpsPercentRatioPattern(client, acc) {
 }
 
 /**
- * @typedef {Object} CentsSatsUsdPattern3
+ * @typedef {Object} CentsSatsUsdPattern4
  * @property {SeriesPattern2<Cents>} cents
  * @property {SeriesPattern2<Sats>} sats
  * @property {SeriesPattern2<Dollars>} usd
  */
 
 /**
- * Create a CentsSatsUsdPattern3 pattern node
+ * Create a CentsSatsUsdPattern4 pattern node
  * @param {BrkClient} client
  * @param {string} acc - Accumulated series name
- * @returns {CentsSatsUsdPattern3}
+ * @returns {CentsSatsUsdPattern4}
  */
-function createCentsSatsUsdPattern3(client, acc) {
+function createCentsSatsUsdPattern4(client, acc) {
   return {
     cents: createSeriesPattern2(client, _m(acc, 'cents')),
     sats: createSeriesPattern2(client, _m(acc, 'sats')),
@@ -4346,6 +4346,27 @@ function createCentsSatsUsdPattern(client, acc) {
     cents: createSeriesPattern1(client, _m(acc, 'cents')),
     sats: createSeriesPattern1(client, _m(acc, 'sats')),
     usd: createSeriesPattern1(client, acc),
+  };
+}
+
+/**
+ * @typedef {Object} CentsSatsUsdPattern2
+ * @property {SeriesPattern8<Cents>} cents
+ * @property {SeriesPattern8<Sats>} sats
+ * @property {SeriesPattern8<Dollars>} usd
+ */
+
+/**
+ * Create a CentsSatsUsdPattern2 pattern node
+ * @param {BrkClient} client
+ * @param {string} acc - Accumulated series name
+ * @returns {CentsSatsUsdPattern2}
+ */
+function createCentsSatsUsdPattern2(client, acc) {
+  return {
+    cents: createSeriesPattern8(client, _m(acc, 'cents')),
+    sats: createSeriesPattern8(client, _m(acc, 'sats')),
+    usd: createSeriesPattern8(client, acc),
   };
 }
 
@@ -5113,6 +5134,7 @@ function createTransferPattern(client, acc) {
  * @property {SeriesTree_Investing} investing
  * @property {SeriesTree_MacroEconomy} macroEconomy
  * @property {SeriesTree_Market} market
+ * @property {SeriesTree_Models} models
  * @property {SeriesTree_Pools} pools
  * @property {SeriesTree_Prices} prices
  * @property {SeriesTree_Supply} supply
@@ -6533,6 +6555,43 @@ function createTransferPattern(client, acc) {
  */
 
 /**
+ * @typedef {Object} SeriesTree_Models
+ * @property {SeriesTree_Models_QuantileCurvature} quantileCurvature
+ * @property {SeriesTree_Models_Baselines} baselines
+ */
+
+/**
+ * @typedef {Object} SeriesTree_Models_QuantileCurvature
+ * @property {CentsSatsUsdPattern2} q01
+ * @property {CentsSatsUsdPattern2} q10
+ * @property {CentsSatsUsdPattern2} q25
+ * @property {CentsSatsUsdPattern2} q50
+ * @property {CentsSatsUsdPattern2} q75
+ * @property {CentsSatsUsdPattern2} q95
+ * @property {CentsSatsUsdPattern2} q99
+ * @property {SeriesPattern8<StoredF32>} dislocationClose
+ * @property {SeriesPattern8<StoredF32>} dislocationWick
+ * @property {SeriesPattern8<StoredF32>} overshootClose
+ * @property {SeriesPattern8<StoredF32>} overshootWick
+ * @property {SeriesPattern8<StoredF32>} fanPosition
+ * @property {SeriesPattern8<StoredF32>} trajectoryMu
+ * @property {SeriesPattern8<StoredF32>} trajectoryBLo
+ * @property {SeriesPattern8<StoredF32>} trajectoryBMed
+ * @property {SeriesPattern8<StoredF32>} trajectoryBHi
+ * @property {SeriesPattern8<StoredF32>} trajectoryDeltaB
+ */
+
+/**
+ * @typedef {Object} SeriesTree_Models_Baselines
+ * @property {CentsSatsUsdPattern2} olsPowerLawPrice
+ * @property {SeriesPattern8<StoredF32>} olsPowerLawError
+ * @property {CentsSatsUsdPattern2} s2fPrice
+ * @property {SeriesPattern8<StoredF32>} s2fError
+ * @property {CentsSatsUsdPattern2} s2fxPrice
+ * @property {SeriesPattern8<StoredF32>} s2fxError
+ */
+
+/**
  * @typedef {Object} SeriesTree_Pools
  * @property {SeriesPattern18<PoolSlug>} pool
  * @property {SeriesTree_Pools_Major} major
@@ -6721,10 +6780,10 @@ function createTransferPattern(client, acc) {
 
 /**
  * @typedef {Object} SeriesTree_Prices_Split
- * @property {CentsSatsUsdPattern3} open
- * @property {CentsSatsUsdPattern3} high
- * @property {CentsSatsUsdPattern3} low
- * @property {CentsSatsUsdPattern3} close
+ * @property {CentsSatsUsdPattern4} open
+ * @property {CentsSatsUsdPattern4} high
+ * @property {CentsSatsUsdPattern4} low
+ * @property {CentsSatsUsdPattern4} close
  */
 
 /**
@@ -9723,6 +9782,35 @@ class BrkClient extends BrkClientBase {
           },
         },
       },
+      models: {
+        quantileCurvature: {
+          q01: createCentsSatsUsdPattern2(this, 'quantile_curvature_q01'),
+          q10: createCentsSatsUsdPattern2(this, 'quantile_curvature_q10'),
+          q25: createCentsSatsUsdPattern2(this, 'quantile_curvature_q25'),
+          q50: createCentsSatsUsdPattern2(this, 'quantile_curvature_q50'),
+          q75: createCentsSatsUsdPattern2(this, 'quantile_curvature_q75'),
+          q95: createCentsSatsUsdPattern2(this, 'quantile_curvature_q95'),
+          q99: createCentsSatsUsdPattern2(this, 'quantile_curvature_q99'),
+          dislocationClose: createSeriesPattern8(this, 'quantile_curvature_dislocation_close'),
+          dislocationWick: createSeriesPattern8(this, 'quantile_curvature_dislocation_wick'),
+          overshootClose: createSeriesPattern8(this, 'quantile_curvature_overshoot_close'),
+          overshootWick: createSeriesPattern8(this, 'quantile_curvature_overshoot_wick'),
+          fanPosition: createSeriesPattern8(this, 'quantile_curvature_fan_position'),
+          trajectoryMu: createSeriesPattern8(this, 'quantile_curvature_trajectory_mu'),
+          trajectoryBLo: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_lo'),
+          trajectoryBMed: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_med'),
+          trajectoryBHi: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_hi'),
+          trajectoryDeltaB: createSeriesPattern8(this, 'quantile_curvature_trajectory_delta_b'),
+        },
+        baselines: {
+          olsPowerLawPrice: createCentsSatsUsdPattern2(this, 'baseline_ols_power_law'),
+          olsPowerLawError: createSeriesPattern8(this, 'baseline_ols_power_law_error'),
+          s2fPrice: createCentsSatsUsdPattern2(this, 'baseline_s2f'),
+          s2fError: createSeriesPattern8(this, 'baseline_s2f_error'),
+          s2fxPrice: createCentsSatsUsdPattern2(this, 'baseline_s2fx'),
+          s2fxError: createSeriesPattern8(this, 'baseline_s2fx_error'),
+        },
+      },
       pools: {
         pool: createSeriesPattern18(this, 'pool'),
         major: {
@@ -9897,10 +9985,10 @@ class BrkClient extends BrkClientBase {
       },
       prices: {
         split: {
-          open: createCentsSatsUsdPattern3(this, 'price_open'),
-          high: createCentsSatsUsdPattern3(this, 'price_high'),
-          low: createCentsSatsUsdPattern3(this, 'price_low'),
-          close: createCentsSatsUsdPattern3(this, 'price_close'),
+          open: createCentsSatsUsdPattern4(this, 'price_open'),
+          high: createCentsSatsUsdPattern4(this, 'price_high'),
+          low: createCentsSatsUsdPattern4(this, 'price_low'),
+          close: createCentsSatsUsdPattern4(this, 'price_close'),
         },
         ohlc: {
           usd: createSeriesPattern2(this, 'price_ohlc'),

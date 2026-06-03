@@ -90,14 +90,62 @@ pub(crate) fn build_bands(closes: &[Option<f64>]) -> [Vec<Cents>; BAND_COUNT] {
     bands
 }
 
-/// Per-day undershoot `U(t) = (price − Q₀.₀₁)/Q₀.₀₁` of `prices` (USD) against
-/// the stored 1% band (cents). Days with no price contribute `0.0`.
-pub(crate) fn build_undershoot(prices: &[Option<f64>], q01_cents: &[Cents]) -> Vec<StoredF32> {
+/// Per-day **fan position**: the model-implied quantile of `prices` (USD) — the
+/// `τ` at which the fitted fan equals spot, interpolated across the seven bands
+/// in log-price space (the fit's natural space) and clamped to the outer taus.
+///
+/// `≈ TAUS[0]` ⇒ spot pinned to/under the bottom band (a bottom signal); `≈
+/// TAUS[last]` ⇒ pinned to/over the top band (a top signal). This is the single
+/// regression-ready position feature: monotone, two-sided, and dimensionless.
+/// Beyond-band *magnitude* is left to the dislocation/overshoot metrics; this
+/// series saturates at the outer taus. Days with no price, a non-positive price,
+/// or a degenerate (zero) top band contribute `NaN`, so they drop out of a
+/// regression cleanly rather than reading as a false extreme.
+pub(crate) fn build_fan_position(
+    prices: &[Option<f64>],
+    bands: &[Vec<Cents>; BAND_COUNT],
+) -> Vec<StoredF32> {
+    let nan = StoredF32::from(f32::NAN);
+    (0..prices.len())
+        .map(|i| {
+            let Some(p) = prices[i] else { return nan };
+            // No fan to position against until the fit yields a positive top band.
+            if p <= 0.0 || f64::from(bands[BAND_COUNT - 1][i]) <= 0.0 {
+                return nan;
+            }
+            // log₁₀ band price at day `i`, floored off zero so an extrapolated
+            // sub-cent early band can't blow up the interpolation denominator.
+            let lg = |k: usize| (f64::from(bands[k][i]) / 100.0).max(1e-9).log10();
+            let lp = p.log10();
+            if lp <= lg(0) {
+                return StoredF32::from(TAUS[0] as f32);
+            }
+            if lp >= lg(BAND_COUNT - 1) {
+                return StoredF32::from(TAUS[BAND_COUNT - 1] as f32);
+            }
+            for k in 0..BAND_COUNT - 1 {
+                let (lo, hi) = (lg(k), lg(k + 1));
+                if lp >= lo && lp <= hi {
+                    let frac = if hi > lo { (lp - lo) / (hi - lo) } else { 0.0 };
+                    let tau = TAUS[k] + frac * (TAUS[k + 1] - TAUS[k]);
+                    return StoredF32::from(tau as f32);
+                }
+            }
+            nan // monotone bands guarantee a bracket above; unreachable in practice
+        })
+        .collect()
+}
+
+/// Per-day relative deviation `(price − band)/band` of `prices` (USD) against a
+/// stored band (cents). Negative ⇒ price below the band — an **undershoot**, used
+/// as dislocation against the 1% band; positive ⇒ above — an **overshoot**, the
+/// top-stretch magnitude against the 99% band. Days with no price contribute `0.0`.
+pub(crate) fn build_band_deviation(prices: &[Option<f64>], band_cents: &[Cents]) -> Vec<StoredF32> {
     (0..prices.len())
         .map(|i| match prices[i] {
             Some(p) => {
-                let q01 = f64::from(q01_cents[i]) / 100.0;
-                StoredF32::from(undershoot(p, q01) as f32)
+                let band = f64::from(band_cents[i]) / 100.0;
+                StoredF32::from(undershoot(p, band) as f32)
             }
             None => StoredF32::from(0.0f32),
         })
@@ -174,14 +222,42 @@ mod tests {
     }
 
     #[test]
-    fn undershoot_series_is_signed_against_the_band() {
-        // Band at $100 (10_000 cents); price below → negative, above → positive.
-        let q01 = vec![Cents::from(10_000u64); 3];
+    fn band_deviation_is_signed_against_the_band() {
+        // Band at $100 (10_000 cents); below → negative (undershoot vs Q01),
+        // above → positive (overshoot vs Q99), missing price → 0.
+        let band = vec![Cents::from(10_000u64); 3];
         let prices = vec![Some(80.0), Some(120.0), None];
-        let u = build_undershoot(&prices, &q01);
-        assert!((f64::from(u[0]) - (-0.2)).abs() < 1e-6, "below band");
-        assert!(f64::from(u[1]) > 0.0, "above band");
-        assert_eq!(f64::from(u[2]), 0.0, "missing price → 0");
+        let d = build_band_deviation(&prices, &band);
+        assert!((f64::from(d[0]) - (-0.2)).abs() < 1e-6, "below band");
+        assert!((f64::from(d[1]) - 0.2).abs() < 1e-6, "above band");
+        assert_eq!(f64::from(d[2]), 0.0, "missing price → 0");
+    }
+
+    #[test]
+    fn fan_position_interpolates_spot_within_the_bands() {
+        // One day, ascending fan at $10,20,30,40,50,60,70 (taus 0.01…0.99).
+        let bands: [Vec<Cents>; BAND_COUNT] =
+            std::array::from_fn(|k| vec![Cents::from((10.0 * (k as f64 + 1.0)) * 100.0)]);
+
+        // Spot exactly on the median band → median tau.
+        let on_median = build_fan_position(&[Some(40.0)], &bands);
+        assert!((f64::from(on_median[0]) - TAUS[MEDIAN_IDX]).abs() < 1e-6);
+
+        // Between two bands → strictly between their taus and monotone in price.
+        let mid_lo = f64::from(build_fan_position(&[Some(33.0)], &bands)[0]);
+        let mid_hi = f64::from(build_fan_position(&[Some(37.0)], &bands)[0]);
+        assert!(TAUS[2] < mid_lo && mid_lo < mid_hi && mid_hi < TAUS[4]);
+
+        // Below the bottom / above the top band → saturates at the outer taus.
+        assert!((f64::from(build_fan_position(&[Some(5.0)], &bands)[0]) - TAUS[0]).abs() < 1e-6);
+        let top = build_fan_position(&[Some(100.0)], &bands);
+        assert!((f64::from(top[0]) - TAUS[BAND_COUNT - 1]).abs() < 1e-6);
+
+        // No price, non-positive price, or a degenerate (zero) fan → NaN.
+        assert!(f64::from(build_fan_position(&[None], &bands)[0]).is_nan());
+        assert!(f64::from(build_fan_position(&[Some(-1.0)], &bands)[0]).is_nan());
+        let zero_fan: [Vec<Cents>; BAND_COUNT] = std::array::from_fn(|_| vec![Cents::ZERO]);
+        assert!(f64::from(build_fan_position(&[Some(40.0)], &zero_fan)[0]).is_nan());
     }
 
     #[test]

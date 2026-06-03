@@ -4,7 +4,7 @@ use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableOptionVec, ReadableVec, Writable
 
 use super::{
     Vecs,
-    band::{Fingerprint, build_bands, build_undershoot, should_refit},
+    band::{Fingerprint, build_band_deviation, build_bands, build_fan_position, should_refit},
     trajectory::fit_through,
 };
 use crate::{indexes, models::util::full_rewrite, prices};
@@ -21,9 +21,10 @@ impl Vecs {
         indexes: &indexes::Vecs,
         exit: &Exit,
     ) -> Result<()> {
-        // Read the daily close and intraday low (USD) into dense per-day vectors.
+        // Read the daily close and intraday low/high (USD) into dense per-day vectors.
         let close = &prices.split.close.usd.day1;
         let low = &prices.split.low.usd.day1;
+        let high = &prices.split.high.usd.day1;
         let day_count = indexes.day1.date.len();
         let closes: Vec<Option<f64>> = (0..day_count)
             .map(|i| close.collect_one_flat(Day1::from(i)).map(f64::from))
@@ -33,26 +34,47 @@ impl Vecs {
         // is append-only and may still be backfilling, so it grows every cycle
         // regardless of the gate.
         let fingerprint = Fingerprint::of(&closes);
-        if should_refit(self.last_fingerprint, fingerprint, self.q50.len()) {
+        if should_refit(self.last_fingerprint, fingerprint, self.q50.cents.len()) {
             // Past band values move as the fit evolves, so this is a full rewrite.
             let bands = build_bands(&closes);
             let q01 = bands[0].clone();
+            let q99 = bands[bands.len() - 1].clone();
+            // Fan position (implied quantile of spot) is a direct transform of the
+            // bands, so derive it here before the bands are consumed below.
+            let fan_position = build_fan_position(&closes, &bands);
             for (vec, values) in self.bands_mut().into_iter().zip(bands) {
                 full_rewrite(vec, &values, exit)?;
             }
+            full_rewrite(&mut self.fan_position, &fan_position, exit)?;
 
-            // Dislocation U(t): conservative (close) and extreme (wick/low) vs q01.
+            // Per-day intraday extremes: low for the bottom wick, high for the top.
             let lows: Vec<Option<f64>> = (0..day_count)
                 .map(|i| low.collect_one_at(i).map(f64::from))
                 .collect();
+            let highs: Vec<Option<f64>> = (0..day_count)
+                .map(|i| high.collect_one_at(i).map(f64::from))
+                .collect();
+
+            // Dislocation below q01 and overshoot above q99: conservative (close)
+            // and extreme (intraday wick) variants of each.
             full_rewrite(
                 &mut self.dislocation_close,
-                &build_undershoot(&closes, &q01),
+                &build_band_deviation(&closes, &q01),
                 exit,
             )?;
             full_rewrite(
                 &mut self.dislocation_wick,
-                &build_undershoot(&lows, &q01),
+                &build_band_deviation(&lows, &q01),
+                exit,
+            )?;
+            full_rewrite(
+                &mut self.overshoot_close,
+                &build_band_deviation(&closes, &q99),
+                exit,
+            )?;
+            full_rewrite(
+                &mut self.overshoot_wick,
+                &build_band_deviation(&highs, &q99),
                 exit,
             )?;
 
