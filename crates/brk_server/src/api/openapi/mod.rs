@@ -102,9 +102,28 @@ All errors return structured JSON with a consistent format:
         Tag {
             name: "Series".to_string(),
             description: Some(
-                "Access thousands of Bitcoin network time-series data. Query historical statistics \
+                "Access thousands of Bitcoin network time-series. Query historical statistics \
                 across various indexes (date, week, month, block height) with JSON or CSV output.\n\n\
+                Series are organized into the backend catalog categories: `blocks`, `transactions`, \
+                `inputs`, `outputs`, `addrs`, `scripts`, `mining`, `pools`, `supply`, `cohorts`, \
+                `market`, `prices`, `indicators`, `investing`, `macro_economy`, `cointime`, \
+                `models`, `distribution`. Browse the catalog tree with `GET /api/series`, then \
+                query a series with `GET /api/series/{series}/{index}`.\n\n\
                 **Note:** Series names are subject to change while the project is in active development."
+                    .to_string(),
+            ),
+            ..Default::default()
+        },
+        Tag {
+            name: "Models".to_string(),
+            description: Some(
+                "Price models derived from the series catalog. The asymmetric tail-curvature \
+                quantile model exposes its fitted result series under the `models` and `baselines` \
+                catalog categories (quantile bands `quantile_curvature_q01`..`q99`, dislocation, \
+                overshoot, fan position, expanding-window trajectory, and the `baseline_*` prior \
+                models) — query them via the Series API. The block-bootstrap asymmetry inference \
+                and out-of-sample diagnostics are served as a JSON artifact at \
+                `GET /api/v1/models/research`."
                     .to_string(),
             ),
             ..Default::default()
@@ -193,12 +212,6 @@ All errors return structured JSON with a consistent format:
                 `GET /api/urpd/{cohort}/dates` (history), `GET /api/urpd/{cohort}/{date}` (specific)."
                     .to_string(),
             ),
-            ..Default::default()
-        },
-        Tag {
-            name: "Metrics".to_string(),
-            description: Some("Deprecated - use Series".to_string()),
-            extensions: [("deprecated".to_string(), serde_json::Value::Bool(true))].into(),
             ..Default::default()
         },
     ];

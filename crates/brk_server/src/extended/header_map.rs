@@ -16,8 +16,6 @@ pub trait HeaderMapExtended {
     fn insert_content_type_text_csv(&mut self);
 
     fn insert_vary_accept_encoding(&mut self);
-
-    fn insert_deprecation(&mut self, sunset: &'static str);
 }
 
 impl HeaderMapExtended for HeaderMap {
@@ -66,11 +64,6 @@ impl HeaderMapExtended for HeaderMap {
 
     fn insert_vary_accept_encoding(&mut self) {
         self.insert(header::VARY, "Accept-Encoding".parse().unwrap());
-    }
-
-    fn insert_deprecation(&mut self, sunset: &'static str) {
-        self.insert("Deprecation", "true".parse().unwrap());
-        self.insert("Sunset", sunset.parse().unwrap());
     }
 }
 

@@ -8,10 +8,7 @@ use axum::{
 
 use crate::{
     Error,
-    api::{
-        metrics::ApiMetricsLegacyRoutes, series::ApiSeriesRoutes,
-        series_legacy::ApiSeriesLegacyRoutes, server::ServerRoutes, urpd::ApiUrpdRoutes,
-    },
+    api::{series::ApiSeriesRoutes, server::ServerRoutes, urpd::ApiUrpdRoutes},
     extended::{ResponseExtended, TransformResponseExtended},
 };
 
@@ -22,12 +19,10 @@ mod blocks;
 mod fees;
 mod general;
 mod mempool;
-mod metrics;
 mod mining;
 mod models;
 mod openapi;
 mod series;
-mod series_legacy;
 mod server;
 mod transactions;
 mod urpd;
@@ -50,9 +45,7 @@ impl ApiRoutes for ApiRouter<AppState> {
     fn add_api_routes(self) -> Self {
         self.add_server_routes()
             .add_series_routes()
-            .add_series_legacy_routes()
             .add_urpd_routes()
-            .add_metrics_legacy_routes()
             .add_general_routes()
             .add_addr_routes()
             .add_block_routes()

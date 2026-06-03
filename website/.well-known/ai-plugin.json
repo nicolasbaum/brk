@@ -3,7 +3,7 @@
   "name_for_human": "Bitcoin Research Kit",
   "name_for_model": "bitcoin_research_kit",
   "description_for_human": "Query Bitcoin on-chain analytics: thousands of metrics, block explorer, address index.",
-  "description_for_model": "Bitcoin on-chain analytics API. Search metrics via /api/metrics/search/{query}, fetch data via /api/metric/{metric}/{index}. No auth required.",
+  "description_for_model": "Bitcoin on-chain analytics API. Search series via /api/series/search?q={query}, fetch data via /api/series/{series}/{index}. No auth required.",
   "auth": { "type": "none" },
   "api": {
     "type": "openapi",

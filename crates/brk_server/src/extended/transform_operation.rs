@@ -16,11 +16,7 @@ pub trait TransformResponseExtended<'t> {
     fn server_tag(self) -> Self;
     fn series_tag(self) -> Self;
     fn urpd_tag(self) -> Self;
-    fn metrics_tag(self) -> Self;
     fn models_tag(self) -> Self;
-
-    /// Mark operation as deprecated
-    fn deprecated(self) -> Self;
 
     /// 200
     fn json_response<R>(self) -> Self
@@ -90,10 +86,6 @@ impl<'t> TransformResponseExtended<'t> for TransformOperation<'t> {
         self.tag("URPD")
     }
 
-    fn metrics_tag(self) -> Self {
-        self.tag("Metrics")
-    }
-
     fn models_tag(self) -> Self {
         self.tag("Models")
     }
@@ -103,11 +95,6 @@ impl<'t> TransformResponseExtended<'t> for TransformOperation<'t> {
         R: JsonSchema,
     {
         self.json_response_with(|r: TransformResponse<'_, R>| r)
-    }
-
-    fn deprecated(mut self) -> Self {
-        self.inner_mut().deprecated = true;
-        self
     }
 
     fn json_response_with<R, F>(self, f: F) -> Self
