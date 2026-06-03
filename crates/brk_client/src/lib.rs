@@ -9995,6 +9995,17 @@ impl BrkClient {
         self.base.get_json(&format!("/api/v1/mining/blocks/sizes-weights/{time_period}"))
     }
 
+    /// Quantile model research artifact
+    ///
+    /// Block-bootstrap asymmetry inference for the asymmetric tail-curvature quantile price model: `Δb` (curvature asymmetry) with standard error, confidence interval and p-value, block-length sensitivity, plus the out-of-sample Diebold–Mariano diagnostics. Computed off the per-block compute loop and written to `<data>/models_research.json`; returns 404 until the first artifact has been produced.
+    ///
+    /// The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position, expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/metrics` and query via `/api/metric/{metric}`.
+    ///
+    /// Endpoint: `GET /api/v1/models/research`
+    pub fn get_models_research(&self) -> Result<serde_json::Value> {
+        self.base.get_json(&format!("/api/v1/models/research"))
+    }
+
     /// Projected mempool blocks
     ///
     /// Get projected blocks from the mempool for fee estimation.

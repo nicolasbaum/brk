@@ -8605,6 +8605,16 @@ class BrkClient(BrkClientBase):
         Endpoint: `GET /api/v1/mining/blocks/sizes-weights/{time_period}`"""
         return self.get_json(f'/api/v1/mining/blocks/sizes-weights/{time_period}')
 
+    def get_models_research(self) -> Any:
+        """Quantile model research artifact.
+
+        Block-bootstrap asymmetry inference for the asymmetric tail-curvature quantile price model: `Δb` (curvature asymmetry) with standard error, confidence interval and p-value, block-length sensitivity, plus the out-of-sample Diebold–Mariano diagnostics. Computed off the per-block compute loop and written to `<data>/models_research.json`; returns 404 until the first artifact has been produced.
+
+        The model's fitted result series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, overshoot, fan position, expanding-window trajectory, and the `baseline_*` prior models) are exposed as regular metrics — list them via `/api/metrics` and query via `/api/metric/{metric}`.
+
+        Endpoint: `GET /api/v1/models/research`"""
+        return self.get_json('/api/v1/models/research')
+
     def get_mempool_blocks(self) -> List[MempoolBlock]:
         """Projected mempool blocks.
 
