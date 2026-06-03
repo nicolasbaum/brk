@@ -1417,7 +1417,35 @@ export function createChart({ parent, brk, fitContent }) {
 
       const defaultColor = unit === Unit.usd ? colors.usd : colors.bitcoin;
 
-      map.get(unit)?.forEach((blueprint, order) => {
+      // Keep overlaid series visually distinct: series without an explicit color
+      // would all fall back to `defaultColor` and become indistinguishable. First
+      // reserve every explicit color used in this pane, then hand each uncolored
+      // Line/Dots series a distinct color — the unit default if still free, else a
+      // spaced palette entry — so no two overlaid series share the same color.
+      const blueprints = map.get(unit);
+      const usedColors = new Set();
+      blueprints?.forEach((bp) => {
+        if (!Object.keys(bp.series.by).includes(idx)) return;
+        const b = /** @type {{ color?: Color, colors?: (Color | undefined)[] }} */ (
+          bp
+        );
+        if (b.color) usedColors.add(b.color);
+        b.colors?.forEach((c) => c && usedColors.add(c));
+      });
+      let paletteCursor = 0;
+      const autoColor = () => {
+        if (!usedColors.has(defaultColor)) {
+          usedColors.add(defaultColor);
+          return defaultColor;
+        }
+        let c = colors.at(paletteCursor++);
+        let guard = 0;
+        while (usedColors.has(c) && guard++ < 64) c = colors.at(paletteCursor++);
+        usedColors.add(c);
+        return c;
+      };
+
+      blueprints?.forEach((blueprint, order) => {
         if (!Object.keys(blueprint.series.by).includes(idx)) return;
 
         const common = {
@@ -1487,7 +1515,7 @@ export function createChart({ parent, brk, fitContent }) {
             pane.series.push(
               serieses.addDots({
                 ...common,
-                color: blueprint.color ?? defaultColor,
+                color: blueprint.color ?? autoColor(),
               }),
             );
             break;
@@ -1496,7 +1524,9 @@ export function createChart({ parent, brk, fitContent }) {
             pane.series.push(
               serieses.addLine({
                 ...common,
-                color: blueprint.color ?? defaultColor,
+                color:
+                  blueprint.color ??
+                  (blueprint.colorFn ? defaultColor : autoColor()),
                 colorFn: blueprint.colorFn,
               }),
             );
