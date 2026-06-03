@@ -354,25 +354,6 @@ Matches mempool.space/bitcoin-cli behavior.
  * @typedef {string} CoinbaseTag
  */
 /**
- * @typedef {Object} CostBasisCohortParam
- * @property {Cohort} cohort
- */
-/**
- * @typedef {Object} CostBasisParams
- * @property {Cohort} cohort
- * @property {string} date
- */
-/**
- * @typedef {Object} CostBasisQuery
- * @property {UrpdAggregation=} bucket
- * @property {CostBasisValue=} value
- */
-/**
- * Value type for the deprecated cost-basis distribution output.
- *
- * @typedef {("supply"|"realized"|"unrealized")} CostBasisValue
- */
-/**
  * CPFP cluster: the connected component the seed belongs to, plus its
  * SFL linearization.
  *
@@ -448,16 +429,6 @@ ancestors and no descendants (matches mempool.space).
  */
 /** @typedef {number} Day1 */
 /** @typedef {number} Day3 */
-/**
- * Detailed series count with per-database breakdown
- *
- * @typedef {Object} DetailedSeriesCount
- * @property {number} distinctSeries - Number of unique series available (e.g., realized_price, market_cap)
- * @property {number} totalEndpoints - Total number of series-index combinations across all timeframes
- * @property {number} lazyEndpoints - Number of lazy (computed on-the-fly) series-index combinations
- * @property {number} storedEndpoints - Number of eager (stored on disk) series-index combinations
- * @property {{ [key: string]: SeriesCount }} byDb - Per-database breakdown of counts
- */
 /**
  * Difficulty adjustment information.
  *
@@ -645,19 +616,6 @@ ancestors and no descendants (matches mempool.space).
  * @typedef {Object} IndexInfo
  * @property {Index} index - The canonical index name
  * @property {string[]} aliases - All Accepted query aliases
- */
-/**
- * Legacy path parameter for `/api/metric/{metric}`
- *
- * @typedef {Object} LegacySeriesParam
- * @property {SeriesName} metric
- */
-/**
- * Legacy path parameters for `/api/metric/{metric}/{index}`
- *
- * @typedef {Object} LegacySeriesWithIndex
- * @property {SeriesName} metric
- * @property {Index} index
  */
 /**
  * Maximum number of results to return. Defaults to 100 if not specified.
@@ -1044,17 +1002,6 @@ on serialization otherwise.
  * @typedef {Object} SeriesSelection
  * @property {SeriesList} series - Requested series
  * @property {Index} index - Index to query
- * @property {(RangeIndex|null)=} start - Inclusive start: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `from`, `f`, `s`
- * @property {(RangeIndex|null)=} end - Exclusive end: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `to`, `t`, `e`
- * @property {(Limit|null)=} limit - Maximum number of values to return (ignored if `end` is set). Aliases: `count`, `c`, `l`
- * @property {Format=} format - Format of the output
- */
-/**
- * Legacy series selection parameters (deprecated)
- *
- * @typedef {Object} SeriesSelectionLegacy
- * @property {Index} index
- * @property {SeriesList} ids
  * @property {(RangeIndex|null)=} start - Inclusive start: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `from`, `f`, `s`
  * @property {(RangeIndex|null)=} end - Exclusive end: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `to`, `t`, `e`
  * @property {(Limit|null)=} limit - Maximum number of values to return (ignored if `end` is set). Aliases: `count`, `c`, `l`

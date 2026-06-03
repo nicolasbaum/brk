@@ -97,12 +97,6 @@ Cohort = Literal["all", "sth", "lth", "utxos_under_1h_old", "utxos_1h_to_1d_old"
 # 
 # Bitcoin consensus limits coinbase scriptSig to 2-100 bytes.
 CoinbaseTag = str
-# Value type for the deprecated cost-basis distribution output.
-CostBasisValue = Literal["supply", "realized", "unrealized"]
-# Aggregation strategy for URPD buckets.
-# Options: raw (no aggregation), lin200/lin500/lin1000 (linear $200/$500/$1000),
-# log10/log50/log100/log200 (logarithmic with 10/50/100/200 buckets per decade).
-UrpdAggregation = Literal["raw", "lin200", "lin500", "lin1000", "log10", "log50", "log100", "log200"]
 # Position of a transaction inside a `CpfpCluster.txs` array. Cluster-local,
 # has no meaning outside the enclosing cluster.
 CpfpClusterTxIndex = int
@@ -144,8 +138,6 @@ Hour4 = int
 # Aggregation dimension for querying series. Includes time-based (date, week, month, year),
 # block-based (height, tx_index), and address/output type indexes.
 Index = Literal["minute10", "minute30", "hour1", "hour4", "hour12", "day1", "day3", "week1", "month1", "month3", "month6", "year1", "year10", "halving", "epoch", "height", "tx_index", "txin_index", "txout_index", "empty_output_index", "op_return_index", "p2a_addr_index", "p2ms_output_index", "p2pk33_addr_index", "p2pk65_addr_index", "p2pkh_addr_index", "p2sh_addr_index", "p2tr_addr_index", "p2wpkh_addr_index", "p2wsh_addr_index", "unknown_output_index", "funded_addr_index", "empty_addr_index"]
-# Series name
-SeriesName = str
 # Lowest price value for a time period
 Low = Dollars
 Minute10 = int
@@ -193,6 +185,8 @@ SatsFract = float
 # Signed satoshis (i64) - for values that can be negative.
 # Used for changes, deltas, profit/loss calculations, etc.
 SatsSigned = int
+# Series name
+SeriesName = str
 # Version tracking for data schema and computed values.
 # 
 # Used to detect when stored data needs to be recomputed due to changes
@@ -245,6 +239,10 @@ Vin = int
 # Transaction version number
 TxVersion = int
 UnknownOutputIndex = TypeIndex
+# Aggregation strategy for URPD buckets.
+# Options: raw (no aggregation), lin200/lin500/lin1000 (linear $200/$500/$1000),
+# log10/log50/log100/log200 (logarithmic with 10/50/100/200 buckets per decade).
+UrpdAggregation = Literal["raw", "lin200", "lin500", "lin1000", "log10", "log50", "log100", "log200"]
 Week1 = int
 Year1 = int
 Year10 = int
@@ -653,17 +651,6 @@ class BlockTimestamp(TypedDict):
     hash: BlockHash
     timestamp: str
 
-class CostBasisCohortParam(TypedDict):
-    cohort: Cohort
-
-class CostBasisParams(TypedDict):
-    cohort: Cohort
-    date: str
-
-class CostBasisQuery(TypedDict):
-    bucket: UrpdAggregation
-    value: CostBasisValue
-
 class CpfpClusterChunk(TypedDict):
     """
     One SFL chunk inside a `CpfpCluster`. `txs` is in topological order
@@ -751,38 +738,6 @@ class DataRangeFormat(TypedDict):
     end: Union[RangeIndex, None]
     limit: Union[Limit, None]
     format: Format
-
-class SeriesCount(TypedDict):
-    """
-    Series count statistics - distinct series and total series-index combinations
-
-    Attributes:
-        distinct_series: Number of unique series available (e.g., realized_price, market_cap)
-        total_endpoints: Total number of series-index combinations across all timeframes
-        lazy_endpoints: Number of lazy (computed on-the-fly) series-index combinations
-        stored_endpoints: Number of eager (stored on disk) series-index combinations
-    """
-    distinct_series: int
-    total_endpoints: int
-    lazy_endpoints: int
-    stored_endpoints: int
-
-class DetailedSeriesCount(TypedDict):
-    """
-    Detailed series count with per-database breakdown
-
-    Attributes:
-        distinct_series: Number of unique series available (e.g., realized_price, market_cap)
-        total_endpoints: Total number of series-index combinations across all timeframes
-        lazy_endpoints: Number of lazy (computed on-the-fly) series-index combinations
-        stored_endpoints: Number of eager (stored on disk) series-index combinations
-        by_db: Per-database breakdown of counts
-    """
-    distinct_series: int
-    total_endpoints: int
-    lazy_endpoints: int
-    stored_endpoints: int
-    by_db: dict[str, SeriesCount]
 
 class DifficultyAdjustment(TypedDict):
     """
@@ -1008,19 +963,6 @@ class IndexInfo(TypedDict):
     """
     index: Index
     aliases: List[str]
-
-class LegacySeriesParam(TypedDict):
-    """
-    Legacy path parameter for `/api/metric/{metric}`
-    """
-    metric: SeriesName
-
-class LegacySeriesWithIndex(TypedDict):
-    """
-    Legacy path parameters for `/api/metric/{metric}/{index}`
-    """
-    metric: SeriesName
-    index: Index
 
 class MempoolBlock(TypedDict):
     """
@@ -1401,6 +1343,21 @@ class SearchQuery(TypedDict):
     q: SeriesName
     limit: Limit
 
+class SeriesCount(TypedDict):
+    """
+    Series count statistics - distinct series and total series-index combinations
+
+    Attributes:
+        distinct_series: Number of unique series available (e.g., realized_price, market_cap)
+        total_endpoints: Total number of series-index combinations across all timeframes
+        lazy_endpoints: Number of lazy (computed on-the-fly) series-index combinations
+        stored_endpoints: Number of eager (stored on disk) series-index combinations
+    """
+    distinct_series: int
+    total_endpoints: int
+    lazy_endpoints: int
+    stored_endpoints: int
+
 class SeriesInfo(TypedDict):
     """
     Metadata about a series
@@ -1453,23 +1410,6 @@ class SeriesSelection(TypedDict):
     """
     series: SeriesList
     index: Index
-    start: Union[RangeIndex, None]
-    end: Union[RangeIndex, None]
-    limit: Union[Limit, None]
-    format: Format
-
-class SeriesSelectionLegacy(TypedDict):
-    """
-    Legacy series selection parameters (deprecated)
-
-    Attributes:
-        start: Inclusive start: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `from`, `f`, `s`
-        end: Exclusive end: integer index, date (YYYY-MM-DD), or timestamp (ISO 8601). Negative integers count from end. Aliases: `to`, `t`, `e`
-        limit: Maximum number of values to return (ignored if `end` is set). Aliases: `count`, `c`, `l`
-        format: Format of the output
-    """
-    index: Index
-    ids: SeriesList
     start: Union[RangeIndex, None]
     end: Union[RangeIndex, None]
     limit: Union[Limit, None]
