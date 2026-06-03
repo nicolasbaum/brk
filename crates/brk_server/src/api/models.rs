@@ -1,12 +1,11 @@
-use aide::axum::ApiRouter;
+use aide::axum::{ApiRouter, routing::get_with};
 use axum::{
     extract::State,
     http::{StatusCode, header::CONTENT_TYPE},
     response::{IntoResponse, Response},
-    routing::get,
 };
 
-use crate::AppState;
+use crate::{AppState, extended::TransformResponseExtended};
 
 pub trait ModelsRoutes {
     fn add_models_routes(self) -> Self;
@@ -14,7 +13,29 @@ pub trait ModelsRoutes {
 
 impl ModelsRoutes for ApiRouter<AppState> {
     fn add_models_routes(self) -> Self {
-        self.route("/api/v1/models/research", get(get_models_research))
+        self.api_route(
+            "/api/v1/models/research",
+            get_with(get_models_research, |op| {
+                op.id("get_models_research")
+                    .models_tag()
+                    .summary("Quantile model research artifact")
+                    .description(
+                        "Block-bootstrap asymmetry inference for the asymmetric tail-curvature \
+                         quantile price model: `Δb` (curvature asymmetry) with standard error, \
+                         confidence interval and p-value, block-length sensitivity, plus the \
+                         out-of-sample Diebold–Mariano diagnostics. Computed off the per-block \
+                         compute loop and written to `<data>/models_research.json`; returns 404 \
+                         until the first artifact has been produced.\n\nThe model's fitted result \
+                         series (quantile bands `quantile_curvature_q01`..`q99`, dislocation, \
+                         overshoot, fan position, expanding-window trajectory, and the \
+                         `baseline_*` prior models) are exposed as regular metrics — list them \
+                         via `/api/metrics` and query via `/api/metric/{metric}`.",
+                    )
+                    .json_response::<serde_json::Value>()
+                    .not_found()
+                    .server_error()
+            }),
+        )
     }
 }
 
