@@ -5,7 +5,7 @@
 //! decides whether a refit is warranted.
 
 use brk_quantile::dislocation::undershoot;
-use brk_quantile::{FitSpec, TAUS, fit};
+use brk_quantile::{Coefficients, FitSpec, TAUS, fit};
 use brk_types::{Cents, StoredF32};
 
 /// Number of quantile bands (= [`brk_quantile::TAUS`] length).
@@ -175,33 +175,78 @@ pub(crate) fn build_fan_position_extended(
             if p <= 0.0 || f64::from(bands[BAND_COUNT - 1][i]) <= 0.0 {
                 return nan;
             }
-            let lg = |k: usize| (f64::from(bands[k][i]) / 100.0).max(1e-9).log10();
-            let lp = p.log10();
-
-            // Map log-price → z-score: interpolate within the bands, extrapolate
-            // along the nearest outer segment beyond them.
-            let z = if lp <= lg(0) {
-                interp_z(lp, lg(0), lg(1), BAND_Z[0], BAND_Z[1])
-            } else if lp >= lg(BAND_COUNT - 1) {
-                let (a, b) = (BAND_COUNT - 2, BAND_COUNT - 1);
-                interp_z(lp, lg(a), lg(b), BAND_Z[a], BAND_Z[b])
-            } else {
-                let mut found = f64::NAN;
-                for k in 0..BAND_COUNT - 1 {
-                    let (lo, hi) = (lg(k), lg(k + 1));
-                    if lp >= lo && lp <= hi {
-                        found = interp_z(lp, lo, hi, BAND_Z[k], BAND_Z[k + 1]);
-                        break;
-                    }
-                }
-                found
-            };
-            if z.is_nan() {
+            // Stored bands are cents; convert to USD log-price (floored off zero).
+            let log_bands: [f64; BAND_COUNT] =
+                std::array::from_fn(|k| (f64::from(bands[k][i]) / 100.0).max(1e-9).log10());
+            let tau = extended_position_from_log_bands(&log_bands, p.log10());
+            if tau.is_nan() {
                 return nan; // monotone bands guarantee a bracket; unreachable in practice
             }
-            StoredF32::from(normal_cdf(z.clamp(-Z_CLAMP, Z_CLAMP)) as f32)
+            StoredF32::from(tau as f32)
         })
         .collect()
+}
+
+/// **Causal** extended fan position from a single fitted [`Coefficients`] at day
+/// `t` (days since genesis). The model-implied (probit, unclamped) quantile of
+/// `price` under the bands the fit predicts for day `t` — identical mapping to
+/// [`build_fan_position_extended`], but reading bands straight from
+/// `coef.band_prices(t)` instead of stored cents. Feeding it a *point-in-time*
+/// expanding-window fit (one trained only on data through day `t`) yields a
+/// lookahead-free fan position, unlike the single global fit behind the stored
+/// `fan_position*` series. `NaN` for no/non-positive price or a degenerate
+/// (zero) top band — same rules as the stored-band path.
+pub(crate) fn fan_position_extended_from_coef(
+    coef: &Coefficients,
+    t: f64,
+    price: Option<f64>,
+) -> StoredF32 {
+    let nan = StoredF32::from(f32::NAN);
+    let Some(p) = price else { return nan };
+    if p <= 0.0 {
+        return nan;
+    }
+    // `t.max(1.0)` mirrors `build_bands`' genesis-day clamp so ln(t) stays finite.
+    let bp = coef.band_prices(t.max(1.0));
+    if bp[BAND_COUNT - 1] <= 0.0 {
+        return nan;
+    }
+    // `band_prices` are USD (already monotone-rearranged), so no cents division.
+    let log_bands: [f64; BAND_COUNT] = std::array::from_fn(|k| bp[k].max(1e-9).log10());
+    let tau = extended_position_from_log_bands(&log_bands, p.log10());
+    if tau.is_nan() {
+        return nan;
+    }
+    StoredF32::from(tau as f32)
+}
+
+/// Shared core of the *extended* fan position: map a log-price `lp` to a
+/// percentile given the seven ascending log10 band prices. Interpolates the
+/// z-score within the bands and extrapolates along the nearest outer segment
+/// beyond them (so tails keep their magnitude), clamps to ±[`Z_CLAMP`], and
+/// pushes through Φ. Returns `NaN` only if the bracket search fails — which
+/// monotone bands make unreachable in practice.
+fn extended_position_from_log_bands(log_bands: &[f64; BAND_COUNT], lp: f64) -> f64 {
+    let z = if lp <= log_bands[0] {
+        interp_z(lp, log_bands[0], log_bands[1], BAND_Z[0], BAND_Z[1])
+    } else if lp >= log_bands[BAND_COUNT - 1] {
+        let (a, b) = (BAND_COUNT - 2, BAND_COUNT - 1);
+        interp_z(lp, log_bands[a], log_bands[b], BAND_Z[a], BAND_Z[b])
+    } else {
+        let mut found = f64::NAN;
+        for k in 0..BAND_COUNT - 1 {
+            let (lo, hi) = (log_bands[k], log_bands[k + 1]);
+            if lp >= lo && lp <= hi {
+                found = interp_z(lp, lo, hi, BAND_Z[k], BAND_Z[k + 1]);
+                break;
+            }
+        }
+        found
+    };
+    if z.is_nan() {
+        return f64::NAN;
+    }
+    normal_cdf(z.clamp(-Z_CLAMP, Z_CLAMP))
 }
 
 /// Linearly map `lp` from the `[lo, hi]` log-price segment onto the
@@ -250,7 +295,7 @@ pub(crate) fn build_band_deviation(prices: &[Option<f64>], band_cents: &[Cents])
 #[cfg(test)]
 mod tests {
     use super::*;
-    use brk_quantile::MEDIAN_IDX;
+    use brk_quantile::{MEDIAN_IDX, QuantileCoef};
 
     /// Daily closes following a clean exponential trend in log-time, so the
     /// median band should recover a smooth, strictly increasing curve.
@@ -394,6 +439,63 @@ mod tests {
         assert!(f64::from(build_fan_position_extended(&[Some(-1.0)], &bands)[0]).is_nan());
         let zero_fan: [Vec<Cents>; BAND_COUNT] = std::array::from_fn(|_| vec![Cents::ZERO]);
         assert!(f64::from(build_fan_position_extended(&[Some(40.0)], &zero_fan)[0]).is_nan());
+    }
+
+    /// Day index at which `μ = ln(T_FLAT)` centers `x = ln(t) − μ` to 0, so each
+    /// band's `predict_log10` collapses to its intercept `c = log10(price)` —
+    /// letting [`flat_coef`] pin `band_prices(T_FLAT)` to exact USD values.
+    const T_FLAT: f64 = 1000.0;
+
+    fn flat_coef(prices: [f64; BAND_COUNT]) -> Coefficients {
+        Coefficients {
+            mu: T_FLAT.ln(),
+            quantiles: std::array::from_fn(|k| QuantileCoef {
+                tau: TAUS[k],
+                c: prices[k].log10(),
+                a: 0.0,
+                b: 0.0,
+            }),
+        }
+    }
+
+    #[test]
+    fn causal_fan_position_from_coef_matches_stored_band_path() {
+        // Same ascending fan at $10..$70 (taus 0.01…0.99) as the stored-band
+        // tests, but reconstructed from a fitted Coefficients at T_FLAT.
+        let prices: [f64; BAND_COUNT] = std::array::from_fn(|k| 10.0 * (k as f64 + 1.0));
+        let coef = flat_coef(prices);
+        let fc = |p: f64| f64::from(fan_position_extended_from_coef(&coef, T_FLAT, Some(p)));
+
+        // On the median band → ≈ 0.50.
+        assert!((fc(40.0) - 0.50).abs() < 1e-3);
+
+        // The coef path and the stored-cents path are the same mapping, so they
+        // must agree on the same fan across the bands.
+        let bands: [Vec<Cents>; BAND_COUNT] =
+            std::array::from_fn(|k| vec![Cents::from(prices[k] * 100.0)]);
+        for p in [12.0, 25.0, 40.0, 63.0] {
+            let stored = f64::from(build_fan_position_extended(&[Some(p)], &bands)[0]);
+            assert!(
+                (fc(p) - stored).abs() < 1e-4,
+                "coef {} vs stored {} at price {p}",
+                fc(p),
+                stored
+            );
+        }
+
+        // Extended/unclamped: escapes [q01, q99] beyond the outer bands, monotone.
+        assert!(fc(5.0) < TAUS[0], "deep capitulation reads below q01");
+        assert!(fc(100.0) > TAUS[BAND_COUNT - 1], "blow-off top reads above q99");
+        assert!(fc(1.0) <= fc(5.0) && fc(5.0) < fc(40.0) && fc(40.0) < fc(100.0));
+
+        // Extremes stay strictly inside (0, 1) — clamped to Φ(±Z_CLAMP), not 0/1.
+        assert!(fc(0.000_001) > 0.0 && fc(100_000_000.0) < 1.0);
+
+        // NaN rules: no price, non-positive price, degenerate (zero) top band.
+        assert!(f64::from(fan_position_extended_from_coef(&coef, T_FLAT, None)).is_nan());
+        assert!(f64::from(fan_position_extended_from_coef(&coef, T_FLAT, Some(-1.0))).is_nan());
+        let zero_coef = flat_coef([0.0; BAND_COUNT]);
+        assert!(f64::from(fan_position_extended_from_coef(&zero_coef, T_FLAT, Some(40.0))).is_nan());
     }
 
     #[test]

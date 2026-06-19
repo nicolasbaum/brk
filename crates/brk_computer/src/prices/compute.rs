@@ -1,11 +1,15 @@
 use std::ops::Range;
 
+use std::cmp::Ordering;
+
 use brk_error::{Error, Result};
 use brk_indexer::{Indexer, Lengths};
 use brk_oracle::{Config, NUM_BINS, Oracle, START_HEIGHT, bin_to_cents, cents_to_bin};
-use brk_types::{Cents, OutputType, Sats, TxIndex, TxOutIndex};
+use brk_types::{Cents, Height, OutputType, Sats, TxIndex, TxOutIndex, Version};
 use tracing::info;
-use vecdb::{AnyStoredVec, AnyVec, Exit, ReadableVec, StorageMode, VecIndex, WritableVec};
+use vecdb::{
+    AnyStoredVec, AnyVec, EagerVec, Exit, PcoVec, ReadableVec, StorageMode, VecIndex, WritableVec,
+};
 
 use super::Vecs;
 use crate::indexes;
@@ -22,26 +26,38 @@ impl Vecs {
         let starting_lengths = indexer.safe_lengths();
 
         self.compute_prices(indexer, exit)?;
-        self.split.open.cents.compute_first(
-            &starting_lengths,
-            &self.spot.cents.height,
-            indexes,
-            exit,
-        )?;
-        self.split.high.cents.compute_max(
-            &starting_lengths,
-            &self.spot.cents.height,
-            indexes,
-            exit,
-        )?;
-        self.split.low.cents.compute_min(
-            &starting_lengths,
-            &self.spot.cents.height,
-            indexes,
-            exit,
-        )?;
+
+        // Repair transient oracle mis-locks before aggregating into candles, so
+        // a rare multi-block excursion can't render as a deep wick. Open/high/low
+        // (and close, lazily) all read the robust series instead of raw spot.
+        compute_robust_price(&mut self.robust_cents, &self.spot.cents.height, exit)?;
+
+        // The robust series refines its trailing window as later blocks arrive
+        // (a centered filter near the tip is provisional). Rewind the OHLC
+        // recompute by the same window so any period whose tail blocks were
+        // still provisional on the previous cycle is refreshed.
+        let mut robust_lengths = starting_lengths.clone();
+        robust_lengths.height = Height::from(
+            starting_lengths
+                .height
+                .to_usize()
+                .saturating_sub(ROBUST_HALF_WINDOW),
+        );
+
+        self.split
+            .open
+            .cents
+            .compute_first(&robust_lengths, &self.robust_cents, indexes, exit)?;
+        self.split
+            .high
+            .cents
+            .compute_max(&robust_lengths, &self.robust_cents, indexes, exit)?;
+        self.split
+            .low
+            .cents
+            .compute_min(&robust_lengths, &self.robust_cents, indexes, exit)?;
         self.ohlc.cents.compute_from_split(
-            &starting_lengths,
+            &robust_lengths,
             indexes,
             &self.split.open.cents,
             &self.split.high.cents,
@@ -310,5 +326,147 @@ impl<M: StorageMode> Vecs<M> {
         });
 
         Ok(oracle)
+    }
+}
+
+/// Half-width (in blocks) of the centered median window. ±15 blocks ≈ ±2.5h,
+/// chosen wider than the longest observed oracle mis-lock so the window median
+/// stays anchored to the surrounding true price even mid-excursion.
+const ROBUST_HALF_WINDOW: usize = 15;
+/// Relative gate: a block is repaired to the window median only if it deviates
+/// from that median by more than this fraction. Clean blocks sit well within it
+/// (oracle per-block noise is ~0.35%, and a clean block's deviation from its
+/// *centered* median stays under ~2% even across volatile windows), while
+/// mis-lock excursions — the only thing that renders as a deep wick — run 5–47%.
+/// A MAD-based gate was tried and rejected: legitimate ~3.5% price drift across
+/// the window inflates MAD enough to miss the shallower shoulders of an episode.
+const ROBUST_MAX_DEV: f64 = 0.04;
+
+/// Centered median filter: repair transient per-block oracle mis-locks while
+/// leaving clean blocks bit-identical and following genuine sustained moves.
+///
+/// For each block, take the median over `[h-W, h+W]` of the raw oracle price and
+/// replace the block with it only when the block deviates by more than
+/// `ROBUST_MAX_DEV`. A sustained real move is preserved because the centered
+/// median tracks it; only transient excursions that revert within the window are
+/// repaired. The window reads *ahead* in the (already fully computed) source, so
+/// the trailing `W` blocks near the tip use a truncated window and are
+/// provisional — they are recomputed each cycle by truncating the output back by
+/// `W` before resuming.
+fn compute_robust_price(
+    out: &mut EagerVec<PcoVec<Height, Cents>>,
+    source: &impl ReadableVec<Height, Cents>,
+    exit: &Exit,
+) -> Result<()> {
+    let src_len = source.len();
+    // Recompute the trailing window (provisional centered values) and, after a
+    // reorg, drop any robust entries past the now-shorter source by clamping the
+    // truncation point to `src_len` before backing off by the window.
+    let start = out.len().min(src_len).saturating_sub(ROBUST_HALF_WINDOW);
+    // Algo version (bump on parameter/logic changes) + source version, so the
+    // series recomputes when the oracle prices or this filter change.
+    out.validate_and_truncate(Version::new(1) + source.version(), Height::from(start))?;
+
+    out.repeat_until_complete(exit, |this| {
+        let skip = this.len();
+        let end = this.batch_end(src_len);
+        if skip >= end {
+            return Ok(());
+        }
+
+        // One read covering every block's centered window in this batch.
+        let lo = skip.saturating_sub(ROBUST_HALF_WINDOW);
+        let hi = (end + ROBUST_HALF_WINDOW).min(src_len);
+        let buf: Vec<f64> = source
+            .collect_range_at(lo, hi)
+            .into_iter()
+            .map(|c| c.inner() as f64)
+            .collect();
+
+        let mut window: Vec<f64> = Vec::with_capacity(2 * ROBUST_HALF_WINDOW + 1);
+        for i in skip..end {
+            let wlo = i.saturating_sub(ROBUST_HALF_WINDOW);
+            let whi = (i + ROBUST_HALF_WINDOW + 1).min(src_len);
+            window.clear();
+            window.extend_from_slice(&buf[(wlo - lo)..(whi - lo)]);
+            let repaired = repair_to_median(&mut window, buf[i - lo]);
+            this.checked_push_at(i, Cents::new(repaired.round().max(0.0) as u64))?;
+        }
+        Ok(())
+    })?;
+
+    Ok(())
+}
+
+#[inline]
+fn median_sorted(sorted: &[f64]) -> f64 {
+    let n = sorted.len();
+    if n == 0 {
+        return 0.0;
+    }
+    if n % 2 == 1 {
+        sorted[n / 2]
+    } else {
+        (sorted[n / 2 - 1] + sorted[n / 2]) / 2.0
+    }
+}
+
+/// Returns `x` repaired to the median of `window` when it deviates by more than
+/// [`ROBUST_MAX_DEV`], otherwise `x` unchanged. `window` (the surrounding
+/// context, including `x`) is sorted in place as scratch.
+fn repair_to_median(window: &mut [f64], x: f64) -> f64 {
+    window.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    let med = median_sorted(window);
+    if med > 0.0 && (x - med).abs() / med > ROBUST_MAX_DEV {
+        med
+    } else {
+        x
+    }
+}
+
+#[cfg(test)]
+mod robust_tests {
+    use super::{ROBUST_HALF_WINDOW, repair_to_median};
+
+    fn window(center: f64) -> Vec<f64> {
+        let mut w = vec![62_000_00.0; 2 * ROBUST_HALF_WINDOW + 1];
+        w[ROBUST_HALF_WINDOW] = center;
+        w
+    }
+
+    /// A clean, slowly-varying window leaves the point untouched.
+    #[test]
+    fn leaves_clean_value_unchanged() {
+        let mut w: Vec<f64> = (0..2 * ROBUST_HALF_WINDOW as i64 + 1)
+            .map(|i| 62_000_00.0 + (i as f64) * 100.0) // gentle ramp, cents
+            .collect();
+        let x = w[ROBUST_HALF_WINDOW];
+        assert_eq!(repair_to_median(&mut w, x), x);
+    }
+
+    /// A deep downward excursion (a mis-lock) is replaced by the median.
+    #[test]
+    fn repairs_deep_outlier() {
+        let x = 55_000_00.0; // ~11% below the surrounding price
+        let out = repair_to_median(&mut window(x), x);
+        assert!(
+            (out - 62_000_00.0).abs() < 1.0,
+            "deep outlier should snap to the median, got {out}"
+        );
+    }
+
+    /// An episode "shoulder" just past the gate is still repaired.
+    #[test]
+    fn repairs_shoulder() {
+        let x = 59_000_00.0; // ~4.8% below — past ROBUST_MAX_DEV (4%)
+        let out = repair_to_median(&mut window(x), x);
+        assert!((out - 62_000_00.0).abs() < 1.0, "shoulder should repair, got {out}");
+    }
+
+    /// A move within the gate is kept (no over-correction of ordinary noise).
+    #[test]
+    fn keeps_small_deviation() {
+        let x = 62_500_00.0; // ~0.8% — below ROBUST_MAX_DEV (4%)
+        assert_eq!(repair_to_median(&mut window(x), x), x);
     }
 }

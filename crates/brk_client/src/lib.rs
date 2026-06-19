@@ -6297,6 +6297,7 @@ impl SeriesTree_MacroEconomy_Employment {
 pub struct SeriesTree_MacroEconomy_Inflation {
     pub cpi: SeriesPattern8<StoredF32>,
     pub core_cpi: SeriesPattern8<StoredF32>,
+    pub core_cpi_yoy: SeriesPattern8<StoredF32>,
     pub pce: SeriesPattern8<StoredF32>,
     pub core_pce: SeriesPattern8<StoredF32>,
     pub ppi: SeriesPattern8<StoredF32>,
@@ -6307,6 +6308,7 @@ impl SeriesTree_MacroEconomy_Inflation {
         Self {
             cpi: SeriesPattern8::new(client.clone(), "cpi".to_string()),
             core_cpi: SeriesPattern8::new(client.clone(), "core_cpi".to_string()),
+            core_cpi_yoy: SeriesPattern8::new(client.clone(), "core_cpi_yoy".to_string()),
             pce: SeriesPattern8::new(client.clone(), "pce".to_string()),
             core_pce: SeriesPattern8::new(client.clone(), "core_pce".to_string()),
             ppi: SeriesPattern8::new(client.clone(), "ppi".to_string()),
@@ -6908,6 +6910,7 @@ pub struct SeriesTree_Models_QuantileCurvature {
     pub trajectory_b_med: SeriesPattern8<StoredF32>,
     pub trajectory_b_hi: SeriesPattern8<StoredF32>,
     pub trajectory_delta_b: SeriesPattern8<StoredF32>,
+    pub trajectory_fan_position_extended: SeriesPattern8<StoredF32>,
 }
 
 impl SeriesTree_Models_QuantileCurvature {
@@ -6931,6 +6934,7 @@ impl SeriesTree_Models_QuantileCurvature {
             trajectory_b_med: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_med".to_string()),
             trajectory_b_hi: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_b_hi".to_string()),
             trajectory_delta_b: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_delta_b".to_string()),
+            trajectory_fan_position_extended: SeriesPattern8::new(client.clone(), "quantile_curvature_trajectory_fan_position_extended".to_string()),
         }
     }
 }
@@ -7332,6 +7336,7 @@ pub struct SeriesTree_Prices {
     pub split: SeriesTree_Prices_Split,
     pub ohlc: SeriesTree_Prices_Ohlc,
     pub spot: SeriesTree_Prices_Spot,
+    pub robust_cents: SeriesPattern18<Cents>,
 }
 
 impl SeriesTree_Prices {
@@ -7340,6 +7345,7 @@ impl SeriesTree_Prices {
             split: SeriesTree_Prices_Split::new(client.clone(), format!("{base_path}_split")),
             ohlc: SeriesTree_Prices_Ohlc::new(client.clone(), format!("{base_path}_ohlc")),
             spot: SeriesTree_Prices_Spot::new(client.clone(), format!("{base_path}_spot")),
+            robust_cents: SeriesPattern18::new(client.clone(), "price_robust_cents".to_string()),
         }
     }
 }

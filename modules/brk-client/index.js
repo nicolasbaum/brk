@@ -6254,6 +6254,7 @@ function createTransferPattern(client, acc) {
  * @typedef {Object} SeriesTree_MacroEconomy_Inflation
  * @property {SeriesPattern8<StoredF32>} cpi
  * @property {SeriesPattern8<StoredF32>} coreCpi
+ * @property {SeriesPattern8<StoredF32>} coreCpiYoy
  * @property {SeriesPattern8<StoredF32>} pce
  * @property {SeriesPattern8<StoredF32>} corePce
  * @property {SeriesPattern8<StoredF32>} ppi
@@ -6527,6 +6528,7 @@ function createTransferPattern(client, acc) {
  * @property {SeriesPattern8<StoredF32>} trajectoryBMed
  * @property {SeriesPattern8<StoredF32>} trajectoryBHi
  * @property {SeriesPattern8<StoredF32>} trajectoryDeltaB
+ * @property {SeriesPattern8<StoredF32>} trajectoryFanPositionExtended
  */
 
 /**
@@ -6724,6 +6726,7 @@ function createTransferPattern(client, acc) {
  * @property {SeriesTree_Prices_Split} split
  * @property {SeriesTree_Prices_Ohlc} ohlc
  * @property {SeriesTree_Prices_Spot} spot
+ * @property {SeriesPattern18<Cents>} robustCents
  */
 
 /**
@@ -9554,6 +9557,7 @@ class BrkClient extends BrkClientBase {
         inflation: {
           cpi: createSeriesPattern8(this, 'cpi'),
           coreCpi: createSeriesPattern8(this, 'core_cpi'),
+          coreCpiYoy: createSeriesPattern8(this, 'core_cpi_yoy'),
           pce: createSeriesPattern8(this, 'pce'),
           corePce: createSeriesPattern8(this, 'core_pce'),
           ppi: createSeriesPattern8(this, 'ppi'),
@@ -9750,6 +9754,7 @@ class BrkClient extends BrkClientBase {
           trajectoryBMed: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_med'),
           trajectoryBHi: createSeriesPattern8(this, 'quantile_curvature_trajectory_b_hi'),
           trajectoryDeltaB: createSeriesPattern8(this, 'quantile_curvature_trajectory_delta_b'),
+          trajectoryFanPositionExtended: createSeriesPattern8(this, 'quantile_curvature_trajectory_fan_position_extended'),
         },
         baselines: {
           olsPowerLawPrice: createCentsSatsUsdPattern2(this, 'baseline_ols_power_law'),
@@ -9949,6 +9954,7 @@ class BrkClient extends BrkClientBase {
           cents: createSeriesPattern1(this, 'price_cents'),
           sats: createSeriesPattern1(this, 'price_sats'),
         },
+        robustCents: createSeriesPattern18(this, 'price_robust_cents'),
       },
       supply: {
         state: createSeriesPattern18(this, 'supply_state'),

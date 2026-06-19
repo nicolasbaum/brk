@@ -5,8 +5,11 @@ pub(crate) mod ohlcs;
 use std::path::Path;
 
 use brk_traversable::Traversable;
-use brk_types::Version;
-use vecdb::{Database, ReadOnlyClone, Rw, StorageMode};
+use brk_types::{Cents, Height, Version};
+use vecdb::{
+    Database, EagerVec, ImportableVec, LazyVecFrom1, PcoVec, ReadOnlyClone, ReadableCloneableVec,
+    Rw, StorageMode,
+};
 
 use crate::{
     indexes,
@@ -30,6 +33,13 @@ pub struct Vecs<M: StorageMode = Rw> {
     pub split: SplitByUnit<M>,
     pub ohlc: OhlcByUnit<M>,
     pub spot: PriceByUnit<M>,
+
+    /// Per-block oracle price with transient mis-locks repaired by a centered
+    /// median filter (see `compute::compute_robust_price`). This is the source
+    /// for every OHLC resolution (open/high/low/close), so a rare multi-block
+    /// oracle excursion no longer renders as a deep candle wick. The raw
+    /// `spot` price is left untouched for all economic/per-block uses.
+    pub robust_cents: <M as StorageMode>::Stored<EagerVec<PcoVec<Height, Cents>>>,
 }
 
 impl Vecs {
@@ -50,21 +60,41 @@ impl Vecs {
         indexes: &indexes::Vecs,
     ) -> brk_error::Result<Self> {
         let version = version + Version::new(11);
+        // Bumped independently of `version` so the OHLC pipeline recomputes off
+        // the robust series without resetting `price_cents` (which would force a
+        // full oracle re-run and blank the price line during recompute).
+        let display_version = version + Version::new(1);
 
         let price_cents = CachedPerBlock::forced_import(db, "price_cents", version, indexes)?;
 
-        let open_cents = EagerIndexes::forced_import(db, "price_open_cents", version)?;
-        let high_cents = EagerIndexes::forced_import(db, "price_high_cents", version)?;
-        let low_cents = EagerIndexes::forced_import(db, "price_low_cents", version)?;
+        // Median-repaired per-block price feeding all OHLC resolutions. Filled by
+        // `compute_robust_price` from `price_cents.height`; close (lazy) and the
+        // USD/sats projections read it directly.
+        let robust_cents: EagerVec<PcoVec<Height, Cents>> =
+            EagerVec::forced_import(db, "price_robust_cents", display_version)?;
+        let robust_usd_height = LazyVecFrom1::transformed::<CentsUnsignedToDollars>(
+            "price_robust",
+            display_version,
+            robust_cents.read_only_boxed_clone(),
+        );
+        let robust_sats_height = LazyVecFrom1::transformed::<CentsUnsignedToSats>(
+            "price_robust_sats",
+            display_version,
+            robust_cents.read_only_boxed_clone(),
+        );
+
+        let open_cents = EagerIndexes::forced_import(db, "price_open_cents", display_version)?;
+        let high_cents = EagerIndexes::forced_import(db, "price_high_cents", display_version)?;
+        let low_cents = EagerIndexes::forced_import(db, "price_low_cents", display_version)?;
 
         let close_cents = Resolutions::forced_import(
             "price_close_cents",
-            price_cents.height.read_only_clone(),
-            version,
+            robust_cents.read_only_clone(),
+            display_version,
             indexes,
         );
 
-        let ohlc_cents = OhlcVecs::forced_import(db, "price_ohlc_cents", version)?;
+        let ohlc_cents = OhlcVecs::forced_import(db, "price_ohlc_cents", display_version)?;
 
         let price_usd = LazyPerBlock::from_cached_computed::<CentsUnsignedToDollars>(
             "price",
@@ -89,8 +119,12 @@ impl Vecs {
             &low_cents,
         );
 
-        let close_usd =
-            Resolutions::forced_import("price_close", price_usd.height.clone(), version, indexes);
+        let close_usd = Resolutions::forced_import(
+            "price_close",
+            robust_usd_height.clone(),
+            display_version,
+            indexes,
+        );
 
         let ohlc_usd = LazyOhlcVecs::from_eager_ohlc_indexes::<OhlcCentsToDollars>(
             "price_ohlc",
@@ -124,8 +158,8 @@ impl Vecs {
 
         let close_sats = Resolutions::forced_import(
             "price_close_sats",
-            price_sats.height.clone(),
-            version,
+            robust_sats_height.clone(),
+            display_version,
             indexes,
         );
 
@@ -176,6 +210,7 @@ impl Vecs {
             split,
             ohlc,
             spot,
+            robust_cents,
         })
     }
 }

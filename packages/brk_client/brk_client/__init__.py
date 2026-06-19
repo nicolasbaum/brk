@@ -5271,6 +5271,7 @@ class SeriesTree_MacroEconomy_Inflation:
     def __init__(self, client: BrkClient, base_path: str = ''):
         self.cpi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'cpi')
         self.core_cpi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'core_cpi')
+        self.core_cpi_yoy: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'core_cpi_yoy')
         self.pce: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'pce')
         self.core_pce: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'core_pce')
         self.ppi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'ppi')
@@ -5576,6 +5577,7 @@ class SeriesTree_Models_QuantileCurvature:
         self.trajectory_b_med: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_b_med')
         self.trajectory_b_hi: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_b_hi')
         self.trajectory_delta_b: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_delta_b')
+        self.trajectory_fan_position_extended: SeriesPattern8[StoredF32] = SeriesPattern8(client, 'quantile_curvature_trajectory_fan_position_extended')
 
 class SeriesTree_Models_Baselines:
     """Series tree node."""
@@ -5810,6 +5812,7 @@ class SeriesTree_Prices:
         self.split: SeriesTree_Prices_Split = SeriesTree_Prices_Split(client)
         self.ohlc: SeriesTree_Prices_Ohlc = SeriesTree_Prices_Ohlc(client)
         self.spot: SeriesTree_Prices_Spot = SeriesTree_Prices_Spot(client)
+        self.robust_cents: SeriesPattern18[Cents] = SeriesPattern18(client, 'price_robust_cents')
 
 class SeriesTree_Supply_Velocity:
     """Series tree node."""

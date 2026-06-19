@@ -8,7 +8,7 @@
 //! which keeps the one-time historical backfill cheap enough to run in bounded
 //! chunks without stalling the per-block compute loop.
 
-use brk_quantile::{FitSpec, TAUS, fit, fit_warm};
+use brk_quantile::{Coefficients, FitSpec, TAUS, fit, fit_warm};
 
 /// Minimum positive closes needed to identify the 17-parameter grouped fit.
 pub(crate) const MIN_SAMPLES: usize = 2 * TAUS.len();
@@ -31,13 +31,18 @@ impl TrajectoryPoint {
 }
 
 /// Fit the expanding window of closes through `up_to_day` (inclusive),
-/// warm-starting from `seed` curvatures when available. Returns `None` when
-/// there are too few positive closes to identify the model.
-pub(crate) fn fit_through(
+/// warm-starting from `seed` curvatures when available, and return the *full*
+/// fitted [`Coefficients`]. Returns `None` when there are too few positive
+/// closes to identify the model.
+///
+/// This is the single fit shared by both the headline-coefficient trajectory
+/// ([`fit_through`]) and the causal fan-position series (which needs the full
+/// coefficients to reconstruct that day's band prices).
+pub(crate) fn fit_coef_through(
     closes: &[Option<f64>],
     up_to_day: usize,
     seed: Option<[f64; 3]>,
-) -> Option<TrajectoryPoint> {
+) -> Option<Coefficients> {
     let samples: Vec<(f64, f64)> = closes[..=up_to_day]
         .iter()
         .enumerate()
@@ -53,11 +58,21 @@ pub(crate) fn fit_through(
     }
 
     let spec = FitSpec::asymmetric_grouped();
-    let coef = match seed {
+    Some(match seed {
         Some(s) => fit_warm(&samples, &spec, s),
         None => fit(&samples, &spec),
-    };
-    Some(TrajectoryPoint {
+    })
+}
+
+/// Fit the expanding window of closes through `up_to_day` (inclusive),
+/// warm-starting from `seed` curvatures when available. Returns `None` when
+/// there are too few positive closes to identify the model.
+pub(crate) fn fit_through(
+    closes: &[Option<f64>],
+    up_to_day: usize,
+    seed: Option<[f64; 3]>,
+) -> Option<TrajectoryPoint> {
+    fit_coef_through(closes, up_to_day, seed).map(|coef| TrajectoryPoint {
         mu: coef.mu,
         b_lo: coef.b_lo(),
         b_med: coef.b_med(),
@@ -99,6 +114,20 @@ mod tests {
             // Symmetric data ⇒ asymmetry ≈ 0.
             assert!(p.delta_b.abs() < 5e-3, "delta_b {}", p.delta_b);
         }
+    }
+
+    #[test]
+    fn fit_coef_through_headline_matches_fit_through() {
+        // fit_through is now a thin projection of fit_coef_through; guard that the
+        // headline coefficients stay exactly the full coef's derived values.
+        let closes = quadratic_closes(400, -0.2);
+        let coef = fit_coef_through(&closes, 399, None).unwrap();
+        let point = fit_through(&closes, 399, None).unwrap();
+        assert_eq!(point.mu, coef.mu);
+        assert_eq!(point.b_lo, coef.b_lo());
+        assert_eq!(point.b_med, coef.b_med());
+        assert_eq!(point.b_hi, coef.b_hi());
+        assert_eq!(point.delta_b, coef.delta_b());
     }
 
     #[test]

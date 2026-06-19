@@ -76,6 +76,13 @@ pub struct Vecs<M: StorageMode = Rw> {
     pub trajectory_b_med: TrajectoryVec<M>,
     pub trajectory_b_hi: TrajectoryVec<M>,
     pub trajectory_delta_b: TrajectoryVec<M>,
+
+    /// **Causal** extended fan position: for each day `i`, the implied quantile
+    /// of `closes[i]` under the expanding-window fit through day `i` only — no
+    /// lookahead. The regression-safe twin of `fan_position_extended`, which
+    /// uses a single global hindsight fit; here every value is point-in-time, so
+    /// it backfills day-by-day (warm-up `NaN`s) like the rest of the trajectory.
+    pub trajectory_fan_position_extended: FanPositionVec<M>,
 }
 
 impl<M: StorageMode> Vecs<M> {

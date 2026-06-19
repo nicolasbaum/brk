@@ -68,6 +68,11 @@ impl Vecs {
                 "quantile_curvature_trajectory_delta_b",
                 version,
             )?,
+            trajectory_fan_position_extended: EagerVec::forced_import(
+                db,
+                "quantile_curvature_trajectory_fan_position_extended",
+                version,
+            )?,
         })
     }
 }

@@ -6,9 +6,9 @@ use super::{
     Vecs,
     band::{
         Fingerprint, build_band_deviation, build_bands, build_fan_position,
-        build_fan_position_extended, should_refit,
+        build_fan_position_extended, fan_position_extended_from_coef, should_refit,
     },
-    trajectory::fit_through,
+    trajectory::{fit_coef_through, fit_through},
 };
 use crate::{indexes, models::util::full_rewrite, prices};
 
@@ -88,6 +88,7 @@ impl Vecs {
         }
 
         self.extend_trajectory(&closes, day_count, exit)?;
+        self.extend_trajectory_fan_position(&closes, day_count, exit)?;
         Ok(())
     }
 
@@ -128,6 +129,49 @@ impl Vecs {
         Ok(())
     }
 
+    /// Grow the **causal** extended-fan-position series toward the tip, in the
+    /// same bounded warm-chained chunk as [`Self::extend_trajectory`] but keyed
+    /// on *its own* length: it was added after the other trajectory series, which
+    /// are further along, so it backfills independently from day 0 without
+    /// touching them. Each fittable day records the implied quantile of that
+    /// day's close under the expanding-window fit *through that day only* (no
+    /// lookahead); pre-fittable days store a NaN sentinel.
+    fn extend_trajectory_fan_position(
+        &mut self,
+        closes: &[Option<f64>],
+        day_count: usize,
+        exit: &Exit,
+    ) -> Result<()> {
+        // A reorg can shorten the day count; keep this series within bounds.
+        let stored = self.trajectory_fan_position_extended.len();
+        if stored > day_count {
+            self.trajectory_fan_position_extended
+                .truncate_if_needed_at(day_count)?;
+        }
+        let start = self.trajectory_fan_position_extended.len();
+        let end = (start + TRAJECTORY_CHUNK).min(day_count);
+
+        // Local warm seed: a cold fit for the chunk's first day, warm-chained
+        // within the chunk. Deliberately NOT `self.traj_seed` — that tracks the
+        // other trajectory loop's position, which differs from this one during
+        // catch-up and would corrupt its warm starts.
+        let mut seed: Option<[f64; 3]> = None;
+        for day in start..end {
+            let value = match fit_coef_through(closes, day, seed) {
+                Some(coef) => {
+                    seed = Some([coef.b_lo(), coef.b_med(), coef.b_hi()]);
+                    fan_position_extended_from_coef(&coef, day as f64, closes[day])
+                }
+                None => StoredF32::from(f32::NAN),
+            };
+            self.trajectory_fan_position_extended.push(value);
+        }
+
+        let _lock = exit.lock();
+        self.trajectory_fan_position_extended.write()?;
+        Ok(())
+    }
+
     fn push_trajectory(&mut self, mu: f64, b_lo: f64, b_med: f64, b_hi: f64, delta_b: f64) {
         self.trajectory_mu.push(StoredF32::from(mu as f32));
         self.trajectory_b_lo.push(StoredF32::from(b_lo as f32));
@@ -142,6 +186,8 @@ impl Vecs {
         self.trajectory_b_med.truncate_if_needed_at(len)?;
         self.trajectory_b_hi.truncate_if_needed_at(len)?;
         self.trajectory_delta_b.truncate_if_needed_at(len)?;
+        // Causal fan position is grown by its own loop (extend_trajectory_fan_position),
+        // which keeps itself within day_count — intentionally not truncated here.
         Ok(())
     }
 }
