@@ -79,9 +79,23 @@ impl Fred {
         series_id: &str,
         start_date: Option<Date>,
     ) -> Result<BTreeMap<Date, f32>> {
+        self.fetch_series_with_units(series_id, start_date, None)
+    }
+
+    /// Like [`fetch_series`], but applies a FRED `units` transform server-side
+    /// (e.g. `"pc1"` for percent-change-from-year-ago). This lets us store an
+    /// official YoY series without re-deriving it (`core_cpi_yoy` ← `CPILFESL`
+    /// `units=pc1`).
+    pub fn fetch_series_with_units(
+        &self,
+        series_id: &str,
+        start_date: Option<Date>,
+        units: Option<&str>,
+    ) -> Result<BTreeMap<Date, f32>> {
         let agent = self.agent.clone();
         let api_key = self.api_key.clone();
         let series_id = series_id.to_string();
+        let units = units.map(|u| u.to_string());
 
         default_retry(move |_| {
             let mut url =
@@ -89,6 +103,10 @@ impl Fred {
 
             if let Some(date) = start_date {
                 url.push_str(&format!("&observation_start={date}"));
+            }
+
+            if let Some(units) = &units {
+                url.push_str(&format!("&units={units}"));
             }
 
             info!("Fetching FRED series {series_id}...");

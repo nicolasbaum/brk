@@ -6,6 +6,7 @@ use vecdb::{EagerVec, PcoVec, Rw, StorageMode};
 pub struct Vecs<M: StorageMode = Rw> {
     pub cpi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
     pub core_cpi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
+    pub core_cpi_yoy: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
     pub pce: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
     pub core_pce: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,
     pub ppi: M::Stored<EagerVec<PcoVec<Day1, StoredF32>>>,

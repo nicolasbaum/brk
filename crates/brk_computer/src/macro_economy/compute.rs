@@ -57,6 +57,15 @@ const SERIES_MAP: &[(&str, SeriesTarget)] = &[
     ("WALCL", SeriesTarget::Other(OtherField::FedBalanceSheet)),
 ];
 
+/// FRED series fetched with the `units=pc1` transform (percent change from a
+/// year ago). FRED computes the YoY server-side, so we store the official
+/// figure without re-deriving it. Same `(series_id, target)` shape as
+/// `SERIES_MAP`, fetched in a separate pass.
+const PC1_SERIES_MAP: &[(&str, SeriesTarget)] = &[(
+    "CPILFESL",
+    SeriesTarget::Inflation(InflationField::CoreCpiYoy),
+)];
+
 const MACRO_REFRESH_LOG_LABEL: &str = "macro economy remote refresh";
 
 #[derive(Clone, Copy)]
@@ -95,6 +104,7 @@ enum EmploymentField {
 enum InflationField {
     Cpi,
     CoreCpi,
+    CoreCpiYoy,
     Pce,
     CorePce,
     Ppi,
@@ -171,6 +181,28 @@ impl Vecs {
 
                 if observations.is_empty() {
                     info!("No observations for {series_id}, skipping");
+                    continue;
+                }
+
+                let filled = forward_fill(&observations, &date_to_day1, total_day1s);
+                self.push_filled_values(target, &filled, starting_day1, exit)?;
+            }
+
+            for &(series_id, target) in PC1_SERIES_MAP {
+                let starting_day1 = self.starting_day1_for_target(target, starting_day1);
+                let start_date = start_date_for_day1(starting_day1);
+
+                let observations =
+                    match fred.fetch_series_with_units(series_id, start_date, Some("pc1")) {
+                        Ok(observations) => observations,
+                        Err(e) => {
+                            info!("Failed to fetch FRED series {series_id} (pc1): {e}, skipping");
+                            continue;
+                        }
+                    };
+
+                if observations.is_empty() {
+                    info!("No observations for {series_id} (pc1), skipping");
                     continue;
                 }
 
@@ -274,6 +306,7 @@ impl Vecs {
             SeriesTarget::Inflation(field) => match field {
                 InflationField::Cpi => self.inflation.cpi.len(),
                 InflationField::CoreCpi => self.inflation.core_cpi.len(),
+                InflationField::CoreCpiYoy => self.inflation.core_cpi_yoy.len(),
                 InflationField::Pce => self.inflation.pce.len(),
                 InflationField::CorePce => self.inflation.core_pce.len(),
                 InflationField::Ppi => self.inflation.ppi.len(),
@@ -388,6 +421,7 @@ impl Vecs {
             SeriesTarget::Inflation(field) => match field {
                 InflationField::Cpi => push_to_vec!(self.inflation.cpi),
                 InflationField::CoreCpi => push_to_vec!(self.inflation.core_cpi),
+                InflationField::CoreCpiYoy => push_to_vec!(self.inflation.core_cpi_yoy),
                 InflationField::Pce => push_to_vec!(self.inflation.pce),
                 InflationField::CorePce => push_to_vec!(self.inflation.core_pce),
                 InflationField::Ppi => push_to_vec!(self.inflation.ppi),
