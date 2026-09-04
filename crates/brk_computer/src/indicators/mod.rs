@@ -1,6 +1,7 @@
 mod compute;
 mod gini;
 mod import;
+mod mvrv_z_score;
 pub mod rarity_meter;
 mod vecs;
 
